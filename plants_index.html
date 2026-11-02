@@ -79,6 +79,40 @@
     }
     .btn-install-app:active { transform: scale(0.96); }
 
+    .btn-notify-toggle {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 5px 11px;
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+    .btn-notify-toggle:hover {
+      border-color: var(--text-dim);
+      color: var(--text-main);
+    }
+    .btn-notify-toggle.active {
+      background: rgba(16, 185, 129, 0.16);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #a7f3d0;
+    }
+    .btn-notify-toggle.active .bell-icon {
+      animation: bell-bounce 2s infinite ease-in-out;
+    }
+    @keyframes bell-bounce {
+      0%, 100% { transform: rotate(0); }
+      10% { transform: rotate(14deg); }
+      20% { transform: rotate(-14deg); }
+      30% { transform: rotate(8deg); }
+      40% { transform: rotate(0); }
+    }
+
     /* ── HUB NAV BAR ── */
     .hub-header {
       width: 100%;
@@ -965,7 +999,11 @@
       <img src="/plants/icon-192.png" style="width:24px; height:24px; border-radius:6px;" alt="Logo">
       <span class="title">Tmimer's Plants</span>
     </div>
-    <div style="display:flex; align-items:center; gap:8px;">
+    <div style="display:flex; align-items:center; gap:6px;">
+      <button id="btn-notify" class="btn-notify-toggle" onclick="openNotifyModal()" title="Watering Reminders">
+        <span class="bell-icon">🔔</span>
+        <span id="notify-label">Reminders</span>
+      </button>
       <button id="btn-install-pwa" class="btn-install-app" onclick="triggerPWAInstall()">📲 Install App</button>
     </div>
   </header>
@@ -1156,6 +1194,31 @@
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeModal('history-modal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── NOTIFICATIONS MODAL ── -->
+  <div class="modal-overlay" id="notify-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">🔔 Watering Reminders</div>
+        <button class="btn-close-modal" onclick="closeModal('notify-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="notify-status-box" class="sparkline-box">
+          <!-- Populated by JS -->
+        </div>
+
+        <div style="font-size:0.8rem; color:var(--text-muted); line-height:1.55; display:flex; flex-direction:column; gap:8px;">
+          <div><strong>📱 How it works:</strong> You will receive an automatic push alert on your phone whenever any of your plants are due or overdue for watering.</div>
+          <div><strong>🍎 iPhone (iOS 16.4+):</strong> Make sure the app is opened from your <em>Home Screen icon</em> (Safari requires PWAs to be installed on the Home Screen to deliver notifications).</div>
+          <div><strong>🤖 Android:</strong> Works in both Chrome and the installed Home Screen app.</div>
+          <div><strong>⚡ 24/7 Keep-Alive:</strong> The server stays awake automatically around the clock so alerts arrive without delay and cold-starts are prevented.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('notify-modal')">Close</button>
       </div>
     </div>
   </div>
@@ -1641,6 +1704,191 @@
         .replace(/'/g, "&#039;");
     }
 
+    // ---------- PWA NOTIFICATIONS & REMINDERS ----------
+    let isSubscribedToPush = false;
+
+    function urlB64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+
+    async function checkNotificationStatus() {
+      if (!('serviceWorker' in navigator) || !('Notification' in window)) {
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (!reg.pushManager) return;
+        const sub = await reg.pushManager.getSubscription();
+        isSubscribedToPush = !!sub && Notification.permission === 'granted';
+        updateNotificationButtonUI();
+      } catch (e) {
+        console.log('Error checking notification status:', e);
+      }
+    }
+
+    function updateNotificationButtonUI() {
+      const btn = document.getElementById('btn-notify');
+      const label = document.getElementById('notify-label');
+      if (!btn || !label) return;
+
+      if (isSubscribedToPush) {
+        btn.classList.add('active');
+        label.innerText = 'Active';
+      } else {
+        btn.classList.remove('active');
+        label.innerText = 'Reminders';
+      }
+    }
+
+    async function openNotifyModal() {
+      await checkNotificationStatus();
+      renderNotifyModalBody();
+      openModal('notify-modal');
+    }
+
+    function renderNotifyModalBody() {
+      const box = document.getElementById('notify-status-box');
+      if (!box) return;
+
+      if (isSubscribedToPush) {
+        box.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:0.95rem; font-weight:700; color:var(--emerald);">
+              ✅ Reminders Active
+            </div>
+            <span style="font-size:0.75rem; background:rgba(16,185,129,0.2); color:#a7f3d0; padding:2px 8px; border-radius:12px;">ON</span>
+          </div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin:8px 0 14px 0; line-height:1.4;">
+            This device is registered! You will receive notification alerts on your phone whenever any plant is due or overdue for watering.
+          </p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn-primary" style="padding:7px 14px; font-size:0.8rem;" onclick="sendTestPushAlert()">
+              🚀 Test Phone Alert
+            </button>
+            <button class="btn-secondary" style="padding:7px 14px; font-size:0.8rem;" onclick="unsubscribeFromPush()">
+              🔕 Turn Off
+            </button>
+          </div>
+        `;
+      } else {
+        box.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:0.95rem; font-weight:700; color:var(--text-main);">
+              🔔 Watering Reminders
+            </div>
+            <span style="font-size:0.75rem; background:rgba(148,163,184,0.2); color:var(--text-muted); padding:2px 8px; border-radius:12px;">OFF</span>
+          </div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin:8px 0 14px 0; line-height:1.4;">
+            Enable notifications to get automatic alerts on your phone when plants need water, so you never let them dry out.
+          </p>
+          <button class="btn-primary" style="padding:10px 18px; font-size:0.85rem; width:100%; display:flex; justify-content:center; gap:6px;" onclick="enablePushNotifications()">
+            🔔 Turn On Phone Reminders
+          </button>
+        `;
+      }
+    }
+
+    async function enablePushNotifications() {
+      if (!('Notification' in window)) {
+        alert("Notifications are not supported in this browser. On iPhone, make sure to add the app to your Home Screen and open it from there!");
+        return;
+      }
+
+      try {
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') {
+          alert("Notification permission was denied. Please allow notifications for this app in your browser/phone settings.");
+          return;
+        }
+
+        const reg = await navigator.serviceWorker.ready;
+        if (!reg.pushManager) {
+          alert("Push notifications not supported on this browser engine. Make sure to open the PWA from your Home Screen on iOS.");
+          return;
+        }
+
+        const keyRes = await fetch('/plants/api/notifications/vapid-public-key');
+        if (!keyRes.ok) throw new Error("Could not retrieve VAPID key");
+        const { public_key } = await keyRes.json();
+
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlB64ToUint8Array(public_key)
+          });
+        }
+
+        const subJson = sub.toJSON();
+        const payload = {
+          endpoint: subJson.endpoint,
+          keys: {
+            p256dh: subJson.keys.p256dh,
+            auth: subJson.keys.auth
+          },
+          user_agent: navigator.userAgent
+        };
+
+        const postRes = await fetch('/plants/api/notifications/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!postRes.ok) throw new Error("Server failed to save push subscription");
+
+        isSubscribedToPush = true;
+        updateNotificationButtonUI();
+        renderNotifyModalBody();
+
+        // Send a quick welcome test push
+        await fetch('/plants/api/notifications/test', { method: 'POST' });
+      } catch (err) {
+        alert("Error enabling notifications: " + err.message);
+      }
+    }
+
+    async function unsubscribeFromPush() {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          const endpoint = sub.endpoint;
+          await sub.unsubscribe();
+          await fetch('/plants/api/notifications/unsubscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: endpoint })
+          });
+        }
+        isSubscribedToPush = false;
+        updateNotificationButtonUI();
+        renderNotifyModalBody();
+      } catch (err) {
+        alert("Error disabling notifications: " + err.message);
+      }
+    }
+
+    async function sendTestPushAlert() {
+      try {
+        const res = await fetch('/plants/api/notifications/test', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Failed to send test push");
+        alert("🚀 Test alert dispatched! Check your phone's notification bar.");
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
     // ---------- PWA INSTALL & SERVICE WORKER ----------
     let deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -1666,7 +1914,9 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/plants/sw.js').catch(err => console.log('SW reg error:', err));
+        navigator.serviceWorker.register('/plants/sw.js')
+          .then(() => checkNotificationStatus())
+          .catch(err => console.log('SW reg error:', err));
       });
     }
 

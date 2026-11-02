@@ -1,4 +1,7 @@
 import os
+import json
+import time
+import threading
 import datetime
 from contextlib import asynccontextmanager
 from typing import Optional, List
@@ -6,9 +9,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Float, DateTime, ForeignKey, event, desc
+    create_engine, Column, Integer, String, Float, DateTime, ForeignKey, event, desc, text
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
+from pywebpush import webpush, WebPushException
+from py_vapid import Vapid
+import py_vapid.utils
+from cryptography.hazmat.primitives import serialization
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -60,6 +67,7 @@ class Plant(Base):
     growth_stage = Column(String, nullable=False, default="Vegetative")
     initial_interval_hours = Column(Float, nullable=False, default=72.0)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    last_notified_at = Column(DateTime, nullable=True)
 
     watering_logs = relationship(
         "WateringLog",
@@ -81,6 +89,25 @@ class WateringLog(Base):
     notes = Column(String, nullable=True)
 
     plant = relationship("Plant", back_populates="watering_logs")
+
+
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    endpoint = Column(String, unique=True, index=True, nullable=False)
+    p256dh = Column(String, nullable=False)
+    auth = Column(String, nullable=False)
+    user_agent = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    last_used_at = Column(DateTime, nullable=True)
+
+
+class AppConfig(Base):
+    __tablename__ = "app_config"
+
+    key = Column(String, primary_key=True, index=True)
+    value = Column(String, nullable=False)
 
 
 # ===================== DATABASE HELPER & INIT =====================
@@ -123,17 +150,32 @@ def recompute_plant_intervals(plant_id: int, db: Session):
 
 db_connection_error = None
 
+
 def init_plant_db():
-    """Initializes tables and optionally seeds starter plants with crash-proof fallback."""
+    """Initializes tables, seeds defaults if empty, and prepares VAPID keys."""
     global engine, SessionLocal, db_connection_error
     try:
         Base.metadata.create_all(bind=engine)
+        # Safe migration check: ensure last_notified_at column exists
+        try:
+            with engine.connect() as conn:
+                dialect = engine.dialect.name
+                if dialect == "postgresql":
+                    conn.execute(text("ALTER TABLE plants ADD COLUMN IF NOT EXISTS last_notified_at TIMESTAMP;"))
+                else:
+                    try:
+                        conn.execute(text("ALTER TABLE plants ADD COLUMN last_notified_at TIMESTAMP;"))
+                    except Exception:
+                        pass
+                conn.commit()
+        except Exception as e:
+            print(f"[!] Migration check note: {e}")
+
         print("[+] Primary database tables initialized successfully")
     except Exception as e:
         db_connection_error = str(e)
         print(f"[!] Warning: Database connection failed ({e}).")
         print("[!] Falling back to local SQLite so the server stays alive...")
-        # Fallback to local SQLite so server never crash loops
         sqlite_path = os.path.join(BASE_DIR, "plants_tracker.db")
         fallback_url = f"sqlite:///{sqlite_path}"
         engine = create_engine(fallback_url, connect_args={"check_same_thread": False})
@@ -142,6 +184,9 @@ def init_plant_db():
 
     db = SessionLocal()
     try:
+        # Pre-generate / load VAPID keys
+        get_or_create_vapid(db)
+
         count = db.query(Plant).count()
         if count == 0:
             now = datetime.datetime.utcnow()
@@ -175,7 +220,6 @@ def init_plant_db():
             db.add_all([p1, p2, p3])
             db.commit()
 
-            # Seed logs
             l1 = WateringLog(plant_id=p1.id, watered_at=now - datetime.timedelta(days=10), soil_state="ideal")
             l2 = WateringLog(plant_id=p1.id, watered_at=now - datetime.timedelta(days=7), soil_state="ideal")
             l3 = WateringLog(plant_id=p1.id, watered_at=now - datetime.timedelta(days=4, hours=12), soil_state="ideal")
@@ -320,6 +364,130 @@ def calculate_plant_metrics(plant: Plant, now: Optional[datetime.datetime] = Non
     }
 
 
+# ===================== VAPID & NOTIFICATION ENGINE =====================
+def get_or_create_vapid(db: Session):
+    """Retrieves or creates permanent VAPID keys from the database."""
+    pub_row = db.query(AppConfig).filter(AppConfig.key == "vapid_public_b64").first()
+    priv_row = db.query(AppConfig).filter(AppConfig.key == "vapid_private_pem").first()
+    if pub_row and priv_row:
+        try:
+            v = Vapid.from_pem(priv_row.value.encode("utf-8"))
+            return pub_row.value, v
+        except Exception as e:
+            print(f"[!] Error loading existing VAPID key: {e}")
+
+    # Generate fresh VAPID keypair
+    v = Vapid()
+    v.generate_keys()
+    raw_pub = v.public_key.public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+    b64_pub = py_vapid.utils.b64urlencode(raw_pub)
+    pem_priv = v.private_pem().decode("utf-8")
+
+    if not pub_row:
+        pub_row = AppConfig(key="vapid_public_b64", value=b64_pub)
+        db.add(pub_row)
+    else:
+        pub_row.value = b64_pub
+
+    if not priv_row:
+        priv_row = AppConfig(key="vapid_private_pem", value=pem_priv)
+        db.add(priv_row)
+    else:
+        priv_row.value = pem_priv
+
+    db.commit()
+    return b64_pub, v
+
+
+def send_push_notification(sub: PushSubscription, title: str, body: str, url: str = "/plants", db: Session = None) -> bool:
+    """Dispatches a web push notification to a registered device."""
+    if db is None:
+        return False
+    try:
+        _, vapid_obj = get_or_create_vapid(db)
+        subscription_info = {
+            "endpoint": sub.endpoint,
+            "keys": {
+                "p256dh": sub.p256dh,
+                "auth": sub.auth
+            }
+        }
+        payload = json.dumps({
+            "title": title,
+            "body": body,
+            "url": url
+        })
+        webpush(
+            subscription_info=subscription_info,
+            data=payload,
+            vapid_private_key=vapid_obj,
+            vapid_claims={"sub": "mailto:tmimer@plants.app"},
+            ttl=86400
+        )
+        sub.last_used_at = datetime.datetime.utcnow()
+        db.commit()
+        return True
+    except WebPushException as ex:
+        print(f"[!] WebPushException: {ex}")
+        if ex.response is not None and ex.response.status_code in (404, 410):
+            print(f"[-] Pruning expired push subscription {sub.endpoint[:35]}...")
+            db.delete(sub)
+            db.commit()
+        return False
+    except Exception as e:
+        print(f"[!] Error sending push: {e}")
+        return False
+
+
+def check_and_notify_due_plants(db: Session) -> dict:
+    """Checks for plants due/overdue for watering and alerts registered devices."""
+    subs = db.query(PushSubscription).all()
+    if not subs:
+        return {"status": "no_subscribers", "due_count": 0, "sent": 0}
+
+    now = datetime.datetime.utcnow()
+    plants = db.query(Plant).all()
+    due_plants = []
+
+    for p in plants:
+        m = calculate_plant_metrics(p, now=now)
+        urgency = m["urgency_status"]
+        if urgency in ("OVERDUE", "DUE_TODAY"):
+            # Check if notified in last 16 hours
+            if not p.last_notified_at or (now - p.last_notified_at).total_seconds() > 16 * 3600:
+                due_plants.append((p, m))
+
+    if not due_plants:
+        return {"status": "all_hydrated", "due_count": 0, "sent": 0}
+
+    if len(due_plants) == 1:
+        p, m = due_plants[0]
+        if m["urgency_status"] == "OVERDUE":
+            overdue_hrs = max(1, int(round(abs(m['hours_remaining']))))
+            title = f"🥀 {p.name} is Overdue!"
+            body = f"{p.name} is dry and overdue by {overdue_hrs}h. Tap to log watering."
+        else:
+            hrs = max(0, int(round(m['hours_remaining'])))
+            title = f"💧 Time to water {p.name}"
+            body = f"{p.name} is due today in {hrs}h. Tap to log watering."
+    else:
+        names = [p.name for p, _ in due_plants[:2]]
+        extra = len(due_plants) - len(names)
+        title = f"💧 {len(due_plants)} Plants Need Water Today!"
+        body = f"{', '.join(names)}" + (f" and {extra} more" if extra > 0 else "") + " are ready for a drink."
+
+    sent_count = 0
+    for sub in subs:
+        if send_push_notification(sub, title=title, body=body, url="/plants", db=db):
+            sent_count += 1
+
+    for p, _ in due_plants:
+        p.last_notified_at = now
+    db.commit()
+
+    return {"status": "sent", "due_count": len(due_plants), "sent": sent_count}
+
+
 # ===================== PYDANTIC SCHEMAS =====================
 class PlantCreate(BaseModel):
     name: str = Field(..., min_length=1)
@@ -349,6 +517,21 @@ class WaterLogUpdate(BaseModel):
     soil_state: Optional[str] = Field(None, pattern="^(damp|ideal|bone_dry)$")
     notes: Optional[str] = None
     watered_at: Optional[datetime.datetime] = None
+
+
+class PushSubscriptionKeys(BaseModel):
+    p256dh: str
+    auth: str
+
+
+class PushSubscriptionCreate(BaseModel):
+    endpoint: str
+    keys: PushSubscriptionKeys
+    user_agent: Optional[str] = None
+
+
+class PushUnsubscribe(BaseModel):
+    endpoint: str
 
 
 # ===================== FASTAPI ROUTER =====================
@@ -528,6 +711,7 @@ def water_plant(plant_id: int, payload: WaterLogCreate, db: Session = Depends(ge
         notes=payload.notes.strip() if payload.notes else None
     )
     db.add(new_log)
+    plant.last_notified_at = None  # Reset notification state for next watering cycle!
     db.commit()
 
     recompute_plant_intervals(plant_id, db)
@@ -583,10 +767,96 @@ def delete_watering_log(log_id: int, db: Session = Depends(get_db)):
     }
 
 
+# ===================== NOTIFICATION ROUTES =====================
+@plants_router.get("/api/notifications/vapid-public-key")
+def get_vapid_public_key(db: Session = Depends(get_db)):
+    """Returns the application VAPID public key for browser push subscription."""
+    pub_key, _ = get_or_create_vapid(db)
+    return {"public_key": pub_key}
+
+
+@plants_router.post("/api/notifications/subscribe")
+def subscribe_notifications(payload: PushSubscriptionCreate, db: Session = Depends(get_db)):
+    """Registers a mobile device / browser for watering alerts."""
+    sub = db.query(PushSubscription).filter(PushSubscription.endpoint == payload.endpoint).first()
+    if not sub:
+        sub = PushSubscription(
+            endpoint=payload.endpoint,
+            p256dh=payload.keys.p256dh,
+            auth=payload.keys.auth,
+            user_agent=payload.user_agent,
+            created_at=datetime.datetime.utcnow()
+        )
+        db.add(sub)
+    else:
+        sub.p256dh = payload.keys.p256dh
+        sub.auth = payload.keys.auth
+        if payload.user_agent:
+            sub.user_agent = payload.user_agent
+
+    db.commit()
+    return {"status": "ok", "message": "Device registered for watering reminders"}
+
+
+@plants_router.post("/api/notifications/unsubscribe")
+def unsubscribe_notifications(payload: PushUnsubscribe, db: Session = Depends(get_db)):
+    """Unregisters a device from notifications."""
+    sub = db.query(PushSubscription).filter(PushSubscription.endpoint == payload.endpoint).first()
+    if sub:
+        db.delete(sub)
+        db.commit()
+    return {"status": "ok", "message": "Device unregistered"}
+
+
+@plants_router.post("/api/notifications/test")
+def test_notification(db: Session = Depends(get_db)):
+    """Dispatches an instant test push notification to verify phone reception."""
+    subs = db.query(PushSubscription).all()
+    if not subs:
+        raise HTTPException(
+            status_code=400,
+            detail="No devices registered for notifications yet. Tap 'Turn On Phone Reminders' first!"
+        )
+
+    title = "🌿 Tmimer's Plants Alert Test"
+    body = "Watering reminders are active! You will receive alerts when your plants are due."
+    sent = 0
+    for s in subs:
+        if send_push_notification(s, title=title, body=body, url="/plants", db=db):
+            sent += 1
+
+    return {"status": "ok", "message": f"Test alert dispatched to {sent} device(s)!"}
+
+
+@plants_router.get("/api/notifications/status")
+def notification_status(db: Session = Depends(get_db)):
+    """Returns subscription count and notification readiness."""
+    count = db.query(PushSubscription).count()
+    return {
+        "active_devices": count,
+        "enabled": count > 0
+    }
+
+
+# ===================== BACKGROUND NOTIFICATION SCHEDULER =====================
+def background_notification_worker():
+    """Background daemon thread checking for due plants every 30 minutes."""
+    while True:
+        try:
+            db = SessionLocal()
+            check_and_notify_due_plants(db)
+            db.close()
+        except Exception as e:
+            print(f"[!] Notification background worker error: {e}")
+        time.sleep(1800)  # Check every 30 minutes
+
+
 # ===================== STANDALONE APP INSTANCE =====================
 @asynccontextmanager
 async def plant_lifespan(app: FastAPI):
     init_plant_db()
+    worker = threading.Thread(target=background_notification_worker, daemon=True)
+    worker.start()
     yield
 
 
@@ -600,7 +870,13 @@ def healthcheck():
     raw_env = os.getenv("DATABASE_URL") or ""
     env_preview = raw_env[:30] if raw_env else "NOT_SET"
     db_type = "postgresql" if "postgres" in str(engine.url) else "sqlite_ephemeral"
-            
+
+    # Also run a background check for due plants when pinged by keep-alive
+    try:
+        threading.Thread(target=lambda: check_and_notify_due_plants(SessionLocal()), daemon=True).start()
+    except Exception:
+        pass
+
     return {
         "status": "ok",
         "app": "Tmimer's Plants",
