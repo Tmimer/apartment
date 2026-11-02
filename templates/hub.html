@@ -715,6 +715,35 @@
     }
     .staple-chip:active { transform: scale(0.96); }
 
+    .autocomplete-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #1e293b;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+      z-index: 120;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .autocomplete-item {
+      padding: 9px 14px;
+      font-size: 0.84rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .autocomplete-item:hover {
+      background: rgba(16, 185, 129, 0.15);
+      color: #a7f3d0;
+    }
+
     .grocery-category-header {
       font-size: 0.85rem;
       font-weight: 800;
@@ -1162,12 +1191,32 @@
         </div>
       </div>
 
-      <!-- Quick Add Item Bar -->
-      <div class="actions-bar" style="margin-top: 4px;">
-        <input type="text" id="grocery-quick-input" class="search-input" placeholder="Add item (e.g. Avocado 2 pcs, Sourdough)..." onkeydown="if(event.key==='Enter') submitQuickGrocery()">
-        <button class="btn-add-plant" onclick="submitQuickGrocery()">
-          <span>+</span> Add
-        </button>
+      <!-- Quick Add Item Bar with Autocomplete -->
+      <div style="position: relative; width: 100%; margin-top: 4px;">
+        <div class="actions-bar">
+          <input 
+            type="text" 
+            id="grocery-quick-input" 
+            class="search-input" 
+            placeholder="Add item (e.g. Avocado 2 pcs, Milk 1L)..." 
+            autocomplete="off"
+            oninput="handleGroceryAutocomplete(event)"
+            onkeydown="if(event.key==='Enter') submitQuickGrocery()"
+          >
+          <select id="grocery-category-select" class="form-control" style="width: auto; padding: 8px 10px; font-size: 0.78rem; border-radius: var(--radius-full);">
+            <option value="Produce">Produce</option>
+            <option value="Bakery">Bakery</option>
+            <option value="Meat/Fish">Meat/Fish</option>
+            <option value="Dairy/Eggs">Dairy/Eggs</option>
+            <option value="Pantry/Dry">Pantry/Dry</option>
+            <option value="Frozen">Frozen</option>
+            <option value="Household">Household</option>
+          </select>
+          <button class="btn-add-plant" onclick="submitQuickGrocery()">
+            <span>+</span> Add
+          </button>
+        </div>
+        <div id="grocery-autocomplete-list" class="autocomplete-dropdown"></div>
       </div>
 
       <!-- Action Row: Clear Checked Items & Count -->
@@ -1481,11 +1530,51 @@
       document.getElementById('toast').classList.remove('show');
     }
 
-    // ---------- GROCERY LIST LOGIC (WITH IMMEDIATE LOCALSTORAGE CACHE) ----------
+    // ---------- GROCERY LIST LOGIC (PHASE 2: LIVE SYNC, STAPLES, AUTOCOMPLETE & UNDO) ----------
     let groceryItems = [];
+    let lastGroceryUpdate = null;
+    let groceryPollInterval = null;
+    let autocompleteTimeout = null;
 
-    function loadGroceries() {
-      // 1. Immediately read from localStorage cache so UI shows without cold start wait!
+    function startGroceryPolling() {
+      if (groceryPollInterval) clearInterval(groceryPollInterval);
+      groceryPollInterval = setInterval(() => {
+        if (document.visibilityState === 'visible' && currentTab === 'groceries') {
+          pollGrocerySync();
+        }
+      }, 4000);
+    }
+
+    // Visibility listener: pause when minimized, sync immediately when tab becomes visible
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && currentTab === 'groceries') {
+        pollGrocerySync();
+      }
+    });
+
+    async function pollGrocerySync() {
+      if (!lastGroceryUpdate) {
+        loadGroceries();
+        return;
+      }
+      try {
+        const url = `/groceries/api/sync?since=${encodeURIComponent(lastGroceryUpdate)}`;
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.changed && data.items) {
+          groceryItems = data.items;
+          lastGroceryUpdate = data.last_updated_at;
+          localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
+          renderGroceries();
+        }
+      } catch (err) {
+        // Silent network retry on polling
+      }
+    }
+
+    async function loadGroceries() {
+      // 1. Immediately read from localStorage cache so list displays instantly on cold start!
       const cached = localStorage.getItem('apartment_grocery_cache');
       if (cached) {
         try {
@@ -1494,27 +1583,45 @@
         } catch (e) {}
       }
 
-      // Show waking banner if no items or first fetch
       const banner = document.getElementById('grocery-cold-start-banner');
-      banner.style.display = 'flex';
-      document.getElementById('grocery-banner-text').innerText = "Connecting to shared list...";
+      if (groceryItems.length === 0) {
+        banner.style.display = 'flex';
+        document.getElementById('grocery-banner-text').innerText = "Connecting to shared grocery list...";
+      }
 
-      // 2. Fetch fresh from backend
-      fetch('/groceries/api/items', { headers: getAuthHeaders() })
-        .then(res => {
-          if (!res.ok) throw new Error("Server responded with " + res.status);
-          return res.json();
-        })
-        .then(data => {
-          groceryItems = data.items || [];
-          localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
-          banner.style.display = 'none';
-          renderGroceries();
-        })
-        .catch(err => {
-          console.warn("Grocery fetch note:", err);
-          document.getElementById('grocery-banner-text').innerText = "⚡ Showing offline / cached list";
-        });
+      // 2. Fetch fresh items and staples from backend
+      try {
+        const res = await fetch('/groceries/api/items', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        
+        groceryItems = data.items || [];
+        lastGroceryUpdate = data.last_updated_at;
+        localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
+        banner.style.display = 'none';
+
+        // Render dynamic staples quick-bar if provided
+        if (data.staples && data.staples.length > 0) {
+          renderStaplesBar(data.staples);
+        }
+
+        renderGroceries();
+        startGroceryPolling();
+      } catch (err) {
+        console.warn("Grocery fetch notice:", err);
+        banner.style.display = 'flex';
+        document.getElementById('grocery-banner-text').innerText = "⚡ Showing offline / cached grocery list";
+      }
+    }
+
+    function renderStaplesBar(staples) {
+      const bar = document.getElementById('staples-quick-bar');
+      if (!bar) return;
+      bar.innerHTML = staples.map(st => `
+        <button class="staple-chip" onclick="quickAddStaple('${escapeHtml(st.name)}', '${escapeHtml(st.category)}', ${st.default_amount || 'null'}, '${escapeHtml(st.default_unit || '')}')">
+          ${st.icon_emoji ? `<span>${escapeHtml(st.icon_emoji)}</span>` : ''} ${escapeHtml(st.name)}
+        </button>
+      `).join('');
     }
 
     function renderGroceries() {
@@ -1534,50 +1641,81 @@
 
       if (groceryItems.length === 0) {
         container.innerHTML = `
-          <div style="text-align:center; padding:30px 10px; color:var(--text-muted);">
-            <div style="font-size:2rem; margin-bottom:6px;">🛒</div>
-            <div style="font-weight:700; color:var(--text-main);">Grocery List is Empty</div>
-            <div style="font-size:0.8rem;">Tap a staple above or enter an item to get started.</div>
+          <div style="text-align:center; padding:35px 10px; color:var(--text-muted);">
+            <div style="font-size:2.5rem; margin-bottom:8px;">🛒</div>
+            <div style="font-weight:700; color:var(--text-main); font-size:1.05rem;">Grocery List is Empty</div>
+            <div style="font-size:0.82rem; margin-top:4px;">Tap a staple above or enter an item to shop together!</div>
           </div>
         `;
         return;
       }
 
-      // Group by Category in supermarket walk-through order
+      // Group in supermarket walk-through layout order
       const categoriesOrder = ["Produce", "Bakery", "Meat/Fish", "Dairy/Eggs", "Pantry/Dry", "Frozen", "Household", "Other"];
       const grouped = {};
+      const checkedItems = [];
+
       groceryItems.forEach(item => {
-        const cat = item.category || 'Other';
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push(item);
+        if (item.is_checked) {
+          checkedItems.push(item);
+        } else {
+          const cat = item.category || 'Other';
+          if (!grouped[cat]) grouped[cat] = [];
+          grouped[cat].push(item);
+        }
       });
 
       let html = '';
+
+      // Active items grouped by supermarket aisle
       categoriesOrder.forEach(cat => {
         if (grouped[cat] && grouped[cat].length > 0) {
-          html += `<div class="grocery-category-header">${getCategoryIcon(cat)} ${cat}</div>`;
+          html += `<div class="grocery-category-header">${getCategoryIcon(cat)} ${cat} (${grouped[cat].length})</div>`;
           grouped[cat].forEach(item => {
-            const qtyStr = item.amount ? `${item.amount} ${item.unit || ''}`.trim() : '';
+            const qtyStr = item.amount ? `${item.amount} ${item.unit || ''}`.trim() : (item.unit || '');
+            const addedTag = item.added_by === 'Mikush' ? '🌸 Mikush' : '👤 Tamir';
             html += `
-              <div class="grocery-item-card ${item.is_checked ? 'checked' : ''}" id="grocery-item-${item.id}">
+              <div class="grocery-item-card" id="grocery-item-${item.id}">
                 <div class="grocery-left" onclick="toggleGroceryCheck(${item.id})">
-                  <div class="grocery-checkbox ${item.is_checked ? 'checked' : ''}">
-                    ${item.is_checked ? '✓' : ''}
-                  </div>
+                  <div class="grocery-checkbox" title="Tap to check off"></div>
                   <div>
                     <span class="grocery-name">${escapeHtml(item.name)}</span>
                     ${qtyStr ? `<span class="grocery-qty">${escapeHtml(qtyStr)}</span>` : ''}
                   </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                  <span class="grocery-by">${escapeHtml(item.added_by || 'Tamir')}</span>
-                  <button class="btn-log-action" onclick="deleteGroceryItem(${item.id})">🗑️</button>
+                  <span class="grocery-by">${addedTag}</span>
+                  <button class="btn-log-action" onclick="deleteGroceryItem(${item.id})" title="Delete item">🗑️</button>
                 </div>
               </div>
             `;
           });
         }
       });
+
+      // Completed / in-cart section at bottom
+      if (checkedItems.length > 0) {
+        html += `<div class="grocery-category-header" style="color:var(--text-dim); margin-top:16px;">✓ In Cart / Checked (${checkedItems.length})</div>`;
+        checkedItems.forEach(item => {
+          const qtyStr = item.amount ? `${item.amount} ${item.unit || ''}`.trim() : (item.unit || '');
+          const addedTag = item.added_by === 'Mikush' ? '🌸' : '👤';
+          html += `
+            <div class="grocery-item-card checked" id="grocery-item-${item.id}">
+              <div class="grocery-left" onclick="toggleGroceryCheck(${item.id})">
+                <div class="grocery-checkbox checked" title="Tap to uncheck">✓</div>
+                <div>
+                  <span class="grocery-name">${escapeHtml(item.name)}</span>
+                  ${qtyStr ? `<span class="grocery-qty">${escapeHtml(qtyStr)}</span>` : ''}
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="grocery-by">${addedTag}</span>
+                <button class="btn-log-action" onclick="deleteGroceryItem(${item.id})" title="Delete item">🗑️</button>
+              </div>
+            </div>
+          `;
+        });
+      }
 
       container.innerHTML = html;
     }
@@ -1596,78 +1734,259 @@
       return icons[cat] || '📦';
     }
 
-    function toggleGroceryCheck(id) {
+    // Toggle Check / Uncheck
+    async function toggleGroceryCheck(id) {
       const item = groceryItems.find(i => i.id === id);
       if (!item) return;
-      item.is_checked = !item.is_checked;
+
+      const newState = !item.is_checked;
+      item.is_checked = newState;
       renderGroceries();
       localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
+
+      try {
+        const res = await fetch(`/groceries/api/items/${id}`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ is_checked: newState })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          lastGroceryUpdate = data.item.updated_at;
+        }
+      } catch (err) {
+        console.warn("Check sync error:", err);
+      }
     }
 
-    function quickAddStaple(name, category, amount, unit) {
-      const newItem = {
-        id: Date.now(),
+    // Quick Add Staples
+    async function quickAddStaple(name, category, amount, unit) {
+      const payload = {
         name: name,
-        amount: parseFloat(amount) || null,
-        unit: unit || null,
         category: category || 'Pantry/Dry',
-        is_checked: false,
-        added_by: currentProfile,
-        created_at: new Date().toISOString()
+        amount: amount || null,
+        unit: unit || null,
+        added_by: currentProfile
       };
-      groceryItems.unshift(newItem);
-      renderGroceries();
-      localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
-      showToast(`Added ${name} to Groceries`);
-    }
 
-    function submitQuickGrocery() {
-      const input = document.getElementById('grocery-quick-input');
-      const text = input.value.trim();
-      if (!text) return;
-
-      const newItem = {
-        id: Date.now(),
-        name: text,
-        amount: null,
-        unit: null,
-        category: 'Produce',
+      // Optimistic local insert
+      const tempId = Date.now();
+      groceryItems.unshift({
+        id: tempId,
+        ...payload,
         is_checked: false,
-        added_by: currentProfile,
         created_at: new Date().toISOString()
-      };
-      groceryItems.unshift(newItem);
-      input.value = '';
-      renderGroceries();
-      localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
-      showToast(`Added "${text}"`);
-    }
-
-    function deleteGroceryItem(id) {
-      const index = groceryItems.findIndex(i => i.id === id);
-      if (index === -1) return;
-      const removed = groceryItems.splice(index, 1)[0];
-      renderGroceries();
-      localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
-      showToast(`Deleted ${removed.name}`, () => {
-        groceryItems.splice(index, 0, removed);
-        renderGroceries();
-        localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
       });
+      renderGroceries();
+      localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
+      showToast(`Added ${name} to list`);
+
+      try {
+        const res = await fetch('/groceries/api/items', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const idx = groceryItems.findIndex(i => i.id === tempId);
+          if (idx !== -1) groceryItems[idx] = data.item;
+          lastGroceryUpdate = data.item.updated_at;
+          localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
+        }
+      } catch (err) {
+        console.warn("Add staple error:", err);
+      }
     }
 
-    function clearCheckedGroceries() {
-      const checked = groceryItems.filter(i => i.is_checked);
-      if (checked.length === 0) return;
+    // Intelligent Text Parsing (e.g. "Onions 2 kg", "Eggs 12 pcs", "Milk 1L", "Bread")
+    function parseGroceryInput(raw) {
+      let text = raw.trim();
+      const units = ["g", "kg", "ml", "L", "pcs", "pack"];
+      let amount = null;
+      let unit = null;
+
+      // Match pattern: "<name> <number> <unit>" or "<name> <number><unit>"
+      const regex = new RegExp(`^(.*?)\\s+(\\d+(?:\\.\\d+)?)\\s*(${units.join('|')})$`, 'i');
+      const match = text.match(regex);
+
+      if (match) {
+        text = match[1].trim();
+        amount = parseFloat(match[2]);
+        unit = match[3].toLowerCase();
+        if (unit === 'l') unit = 'L';
+      } else {
+        // Check for trailing number: "<name> 3"
+        const numMatch = text.match(/^(.*?)\s+(\d+(?:\.\d+)?)$/);
+        if (numMatch) {
+          text = numMatch[1].trim();
+          amount = parseFloat(numMatch[2]);
+          unit = 'pcs';
+        }
+      }
+
+      return { name: text, amount, unit };
+    }
+
+    // Submit Quick Add Grocery
+    async function submitQuickGrocery(presetName, presetCategory, presetUnit) {
+      const input = document.getElementById('grocery-quick-input');
+      const catSelect = document.getElementById('grocery-category-select');
+      const rawText = (presetName || input.value).trim();
+      if (!rawText) return;
+
+      closeAutocomplete();
+
+      const parsed = parseGroceryInput(rawText);
+      const category = presetCategory || catSelect.value || 'Produce';
+      const unit = presetUnit || parsed.unit || null;
+
+      const payload = {
+        name: parsed.name,
+        amount: parsed.amount,
+        unit: unit,
+        category: category,
+        added_by: currentProfile
+      };
+
+      input.value = '';
+
+      // Optimistic insert
+      const tempId = Date.now();
+      groceryItems.unshift({
+        id: tempId,
+        ...payload,
+        is_checked: false,
+        created_at: new Date().toISOString()
+      });
+      renderGroceries();
+      localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
+      showToast(`Added "${parsed.name}"`);
+
+      try {
+        const res = await fetch('/groceries/api/items', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const idx = groceryItems.findIndex(i => i.id === tempId);
+          if (idx !== -1) groceryItems[idx] = data.item;
+          lastGroceryUpdate = data.item.updated_at;
+          localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
+        }
+      } catch (err) {
+        console.warn("Add grocery error:", err);
+      }
+    }
+
+    // Autocomplete Handler
+    function handleGroceryAutocomplete(e) {
+      const q = e.target.value.trim();
+      const drop = document.getElementById('grocery-autocomplete-list');
+      clearTimeout(autocompleteTimeout);
+
+      if (q.length < 2) {
+        closeAutocomplete();
+        return;
+      }
+
+      autocompleteTimeout = setTimeout(async () => {
+        try {
+          const res = await fetch(`/groceries/api/autocomplete?q=${encodeURIComponent(q)}`, { headers: getAuthHeaders() });
+          if (!res.ok) return;
+          const data = await res.json();
+          const items = data.suggestions || [];
+          if (items.length === 0) {
+            closeAutocomplete();
+            return;
+          }
+
+          drop.innerHTML = items.map(it => `
+            <div class="autocomplete-item" onclick="selectAutocomplete('${escapeHtml(it.name)}', '${escapeHtml(it.category || 'Produce')}', '${escapeHtml(it.unit || '')}')">
+              <span><strong>${escapeHtml(it.name)}</strong> <small style="color:var(--text-dim);">(${escapeHtml(it.category)})</small></span>
+              <span style="font-size:0.75rem; color:var(--emerald);">+ Tap to add</span>
+            </div>
+          `).join('');
+          drop.style.display = 'flex';
+        } catch (err) {
+          closeAutocomplete();
+        }
+      }, 250);
+    }
+
+    function selectAutocomplete(name, category, unit) {
+      submitQuickGrocery(name, category, unit);
+      closeAutocomplete();
+    }
+
+    function closeAutocomplete() {
+      const drop = document.getElementById('grocery-autocomplete-list');
+      if (drop) drop.style.display = 'none';
+    }
+
+    // Delete item with 5-Second Toast Undo
+    async function deleteGroceryItem(id) {
+      const idx = groceryItems.findIndex(i => i.id === id);
+      if (idx === -1) return;
+
+      const itemToDelete = groceryItems[idx];
+      // Optimistic removal
+      groceryItems.splice(idx, 1);
+      renderGroceries();
+      localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
+
+      try {
+        const res = await fetch(`/groceries/api/items/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+        const data = await res.json();
+        const deletedBackup = data.deleted_item || itemToDelete;
+
+        showToast(`Deleted "${deletedBackup.name}"`, async () => {
+          // Toast Undo action: Restore item to server
+          await fetch('/groceries/api/restore', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ items: [deletedBackup] })
+          });
+          loadGroceries();
+        });
+      } catch (err) {
+        console.warn("Delete error:", err);
+      }
+    }
+
+    // Clear Checked Items with 5-Second Toast Undo
+    async function clearCheckedGroceries() {
+      const checkedList = groceryItems.filter(i => i.is_checked);
+      if (checkedList.length === 0) {
+        showToast("No checked items to clear");
+        return;
+      }
+
+      // Optimistic clear
       const backup = [...groceryItems];
       groceryItems = groceryItems.filter(i => !i.is_checked);
       renderGroceries();
       localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
-      showToast(`Cleared ${checked.length} checked item(s)`, () => {
-        groceryItems = backup;
-        renderGroceries();
-        localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
-      });
+
+      try {
+        const res = await fetch('/groceries/api/clear-checked', { method: 'POST', headers: getAuthHeaders() });
+        const data = await res.json();
+        const clearedBackup = data.cleared_items || checkedList;
+
+        showToast(`Cleared ${clearedBackup.length} item(s)`, async () => {
+          // Toast Undo action: Restore cleared items
+          await fetch('/groceries/api/restore', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ items: clearedBackup })
+          });
+          loadGroceries();
+        });
+      } catch (err) {
+        console.warn("Clear error:", err);
+      }
     }
 
     // ---------- MEALS PLANNER LOGIC ----------
