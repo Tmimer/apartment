@@ -1236,25 +1236,41 @@
   </section>
 
   <!-- ══════════════════════════════════════════════════════
-       TAB 3: MEALS (PHASE 3 READY)
+       TAB 3: MEALS (PHASE 3: MEAL PLANNER & INGREDIENT EXPORT)
   ══════════════════════════════════════════════════════ -->
   <section id="tab-meals" class="tab-pane">
     <main class="container">
 
       <!-- Week Header & One-Tap Export -->
-      <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <div>
-          <div style="font-size:1.1rem; font-weight:800;">Weekly Meal Planner</div>
-          <div style="font-size:0.75rem; color:var(--text-muted);">Plan dinners &amp; export ingredients to Groceries</div>
+          <div style="font-size:1.15rem; font-weight:800; letter-spacing:-0.02em;">Weekly Dinner Planner</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">Plan meals together &amp; export ingredients with 1 tap</div>
         </div>
-        <button class="btn-add-plant" onclick="exportWeekToGroceries()" title="Export all week's ingredients">
-          <span>🛒</span> Export to List
-        </button>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-secondary" style="padding:8px 12px; font-size:0.78rem;" onclick="openCreateMealModal()">
+            <span>+</span> New Recipe
+          </button>
+          <button class="btn-add-plant" onclick="exportWeekToGroceries()" title="Export all week's ingredients">
+            <span>🛒</span> Export to List
+          </button>
+        </div>
       </div>
 
-      <!-- Weekly Schedule Grid -->
+      <!-- Weekly Schedule Grid (Sunday - Saturday) -->
       <div id="weekly-meals-grid" style="display:flex; flex-direction:column; gap:10px;">
         <!-- 7 Days populated by JS -->
+      </div>
+
+      <!-- Saved Recipes Library Drawer -->
+      <div style="margin-top: 14px;">
+        <div class="section-header" style="margin-bottom: 10px;">
+          <span>📖 Saved Meals Library</span>
+          <span id="saved-meals-count-tag" style="font-size:0.7rem;">0 recipes</span>
+        </div>
+        <div id="saved-meals-list" style="display:flex; flex-direction:column; gap:8px;">
+          <!-- Populated by JS -->
+        </div>
       </div>
 
     </main>
@@ -1425,6 +1441,118 @@
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeModal('notify-modal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Assign Meal to Day Modal -->
+  <div class="modal-overlay" id="assign-meal-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title" id="assign-meal-title">📅 Plan Dinner for Day</div>
+        <button class="btn-close-modal" onclick="closeModal('assign-meal-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="assign-day-val" value="">
+
+        <div class="form-group">
+          <label>Choose from Saved Recipes</label>
+          <select id="assign-meal-select" class="form-control" onchange="handleSelectRecipeChange()">
+            <option value="">-- Or enter custom title below --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Or Enter Custom Dinner / Takeout</label>
+          <input type="text" id="assign-custom-title" class="form-control" placeholder="e.g. Date Night, Pizza Takeout...">
+        </div>
+
+        <div style="background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3); border-radius:var(--radius-md); padding:12px; display:flex; align-items:center; justify-content:space-between;">
+          <div>
+            <div style="font-weight:700; font-size:0.85rem; color:#d8b4fe;">♻️ Leftovers / 2x Batch</div>
+            <div style="font-size:0.75rem; color:var(--text-dim);">Skip buying duplicate ingredients on grocery export</div>
+          </div>
+          <input type="checkbox" id="assign-leftovers-chk" style="width:20px; height:20px; accent-color:var(--purple); cursor:pointer;">
+        </div>
+
+        <div class="form-group">
+          <label>Optional Notes</label>
+          <input type="text" id="assign-notes" class="form-control" placeholder="e.g. Tamir cooks, eat by 8pm">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-danger" id="btn-clear-day-meal" onclick="clearCurrentDayMeal()">Clear Day</button>
+        <button class="btn-secondary" onclick="closeModal('assign-meal-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitDayMealAssignment()">Save Dinner</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Create / Edit Saved Recipe Modal -->
+  <div class="modal-overlay" id="saved-meal-modal">
+    <div class="modal-sheet" style="max-height: 94vh;">
+      <div class="modal-header">
+        <div class="modal-title" id="saved-meal-modal-title">🍲 New Recipe</div>
+        <button class="btn-close-modal" onclick="closeModal('saved-meal-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-meal-id" value="">
+
+        <div class="form-row">
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label>Recipe Title *</label>
+            <input type="text" id="meal-form-title" class="form-control" placeholder="e.g. Roasted Salmon with Dill...">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Prep Time (Minutes)</label>
+            <input type="number" id="meal-form-time" class="form-control" placeholder="e.g. 25">
+          </div>
+          <div class="form-group">
+            <label>Recipe Notes / Link</label>
+            <input type="text" id="meal-form-notes" class="form-control" placeholder="e.g. 200°C for 16 min">
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <label style="font-size:0.78rem; font-weight:700; color:var(--text-muted);">Structured Ingredients</label>
+            <button type="button" class="btn-secondary" style="padding:4px 9px; font-size:0.72rem;" onclick="addIngredientRow()">+ Add Ingredient</button>
+          </div>
+          <div id="meal-ingredients-rows" style="display:flex; flex-direction:column; gap:8px;">
+            <!-- Dynamic Rows -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-danger" id="btn-delete-saved-meal" style="display:none;" onclick="deleteCurrentSavedMeal()">Delete</button>
+        <button class="btn-secondary" onclick="closeModal('saved-meal-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitSaveMeal()">Save Recipe</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. View Recipe Details Modal -->
+  <div class="modal-overlay" id="view-recipe-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title" id="view-recipe-title">🍲 Recipe</div>
+        <button class="btn-close-modal" onclick="closeModal('view-recipe-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="view-recipe-meta" style="display:flex; gap:8px; font-size:0.8rem; color:var(--text-muted);"></div>
+        <div id="view-recipe-notes" style="font-size:0.85rem; line-height:1.5; color:var(--text-main); background:rgba(15,23,42,0.6); padding:10px; border-radius:var(--radius-sm); border:1px solid var(--card-border);"></div>
+        
+        <div class="section-header" style="margin-top:4px;">
+          <span>Ingredients</span>
+        </div>
+        <div id="view-recipe-ingredients" style="display:flex; flex-direction:column; gap:6px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="editRecipeFromView()">Edit Recipe</button>
+        <button class="btn-primary" onclick="closeModal('view-recipe-modal')">Done</button>
       </div>
     </div>
   </div>
@@ -1989,44 +2117,426 @@
       }
     }
 
-    // ---------- MEALS PLANNER LOGIC ----------
+    // ---------- MEALS PLANNER LOGIC (PHASE 3: MEALS, RECIPES & 1-TAP GROCERY EXPORT) ----------
     const DAYS_ORDER = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     let weeklyPlan = {};
+    let savedMeals = [];
+    let viewingMeal = null;
 
-    function loadMealPlan() {
-      const grid = document.getElementById('weekly-meals-grid');
-      fetch('/meals/api/plan', { headers: getAuthHeaders() })
-        .then(res => res.json())
-        .then(data => {
-          weeklyPlan = data.weekly_plan || {};
-          renderMealPlan();
-        })
-        .catch(() => renderMealPlan());
+    async function loadMealPlan() {
+      try {
+        const [planRes, mealsRes] = await Promise.all([
+          fetch('/meals/api/plan', { headers: getAuthHeaders() }),
+          fetch('/meals/api/meals', { headers: getAuthHeaders() })
+        ]);
+
+        if (planRes.ok) {
+          const planData = await planRes.json();
+          weeklyPlan = planData.weekly_plan || {};
+        }
+
+        if (mealsRes.ok) {
+          const mealsData = await mealsRes.json();
+          savedMeals = mealsData.meals || [];
+        }
+
+        renderMealPlan();
+        renderSavedMealsList();
+      } catch (err) {
+        console.warn("Meal plan load error:", err);
+      }
     }
 
     function renderMealPlan() {
       const grid = document.getElementById('weekly-meals-grid');
       grid.innerHTML = DAYS_ORDER.map(day => {
         const entry = weeklyPlan[day] || null;
-        const title = entry ? (entry.meal_title || entry.custom_title || 'No meal planned') : 'Tap to assign meal';
+        const isPlanned = entry && (entry.meal_title || entry.custom_title);
+        const title = isPlanned ? (entry.meal_title || entry.custom_title) : "No dinner planned";
         const isLeftovers = entry ? entry.is_leftovers : false;
+        const prepTime = entry && entry.prep_time_min ? `⏱️ ${entry.prep_time_min}m` : null;
 
         return `
-          <div class="meal-day-card">
+          <div class="meal-day-card" id="meal-day-${day}">
             <div class="meal-day-header">
               <span class="meal-day-title">📅 ${day}</span>
-              ${isLeftovers ? `<span class="meal-leftovers-badge">♻️ Leftovers / 2x</span>` : ''}
+              <div style="display:flex; align-items:center; gap:6px;">
+                ${isPlanned ? `
+                  <button 
+                    class="meal-leftovers-badge" 
+                    style="cursor:pointer; background:${isLeftovers ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.06)'}; color:${isLeftovers ? '#d8b4fe' : 'var(--text-dim)'}; border-color:${isLeftovers ? 'rgba(168,85,247,0.5)' : 'var(--card-border)'};"
+                    onclick="toggleDayLeftovers('${day}', ${!isLeftovers})"
+                    title="Toggle Leftovers / 2x Batch"
+                  >
+                    ${isLeftovers ? '♻️ Leftovers' : '+ Leftovers?'}
+                  </button>
+                ` : ''}
+              </div>
             </div>
-            <div style="font-size:0.88rem; color:${entry ? 'var(--text-main)' : 'var(--text-dim)'};">
-              ${escapeHtml(title)}
+
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+              <div style="flex:1;">
+                <div style="font-size:0.95rem; font-weight:${isPlanned ? '700' : '400'}; color:${isPlanned ? 'var(--text-main)' : 'var(--text-dim)'};">
+                  ${escapeHtml(title)}
+                </div>
+                ${prepTime ? `<span style="font-size:0.72rem; color:var(--sky); font-family:var(--font-mono);">${prepTime}</span>` : ''}
+                ${entry && entry.notes ? `<div style="font-size:0.75rem; color:var(--text-dim); margin-top:2px;">📝 ${escapeHtml(entry.notes)}</div>` : ''}
+              </div>
+
+              <div style="display:flex; gap:6px;">
+                <button class="btn-secondary" style="padding:6px 11px; font-size:0.75rem;" onclick="openAssignModal('${day}')">
+                  ${isPlanned ? 'Change' : '+ Plan'}
+                </button>
+                ${isPlanned ? `
+                  <button class="btn-log-action" style="padding:6px;" onclick="clearDayMealDirect('${day}')" title="Clear Dinner">✕</button>
+                ` : ''}
+              </div>
             </div>
           </div>
         `;
       }).join('');
     }
 
-    function exportWeekToGroceries() {
-      showToast("Phase 3 feature: Ingredients aggregation export ready!");
+    function renderSavedMealsList() {
+      const list = document.getElementById('saved-meals-list');
+      const tag = document.getElementById('saved-meals-count-tag');
+      if (!list) return;
+
+      tag.innerText = `${savedMeals.length} recipe${savedMeals.length === 1 ? '' : 's'}`;
+
+      if (savedMeals.length === 0) {
+        list.innerHTML = `
+          <div style="text-align:center; padding:18px; font-size:0.8rem; color:var(--text-dim);">
+            No saved recipes yet. Tap "+ New Recipe" to store favorite apartment meals!
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = savedMeals.map(m => {
+        const timeStr = m.prep_time_min ? `⏱️ ${m.prep_time_min}m` : '';
+        const ingCount = m.ingredients ? m.ingredients.length : 0;
+        return `
+          <div class="grocery-item-card" style="padding:10px 14px;">
+            <div style="flex:1; cursor:pointer;" onclick="viewRecipeDetails(${m.id})">
+              <div style="font-weight:700; font-size:0.92rem; color:var(--text-main);">${escapeHtml(m.title)}</div>
+              <div style="font-size:0.75rem; color:var(--text-dim); display:flex; gap:8px; margin-top:2px;">
+                ${timeStr ? `<span>${timeStr}</span>` : ''}
+                <span>📦 ${ingCount} ingredients</span>
+                ${m.created_by ? `<span>· By ${escapeHtml(m.created_by)}</span>` : ''}
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <button class="btn-secondary" style="padding:4px 9px; font-size:0.72rem;" onclick="openCreateMealModal(${m.id})">⚙️ Edit</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Assign Meal to Day Modal
+    function openAssignModal(day) {
+      document.getElementById('assign-day-val').value = day;
+      document.getElementById('assign-meal-title').innerText = `📅 Plan Dinner for ${day}`;
+
+      const sel = document.getElementById('assign-meal-select');
+      sel.innerHTML = `<option value="">-- Choose from ${savedMeals.length} Saved Recipes --</option>` +
+        savedMeals.map(m => `<option value="${m.id}">${escapeHtml(m.title)} ${m.prep_time_min ? `(${m.prep_time_min}m)` : ''}</option>`).join('');
+
+      const curr = weeklyPlan[day] || null;
+      if (curr) {
+        if (curr.meal_id) sel.value = curr.meal_id;
+        document.getElementById('assign-custom-title').value = curr.custom_title || '';
+        document.getElementById('assign-leftovers-chk').checked = !!curr.is_leftovers;
+        document.getElementById('assign-notes').value = curr.notes || '';
+        document.getElementById('btn-clear-day-meal').style.display = 'inline-block';
+      } else {
+        sel.value = '';
+        document.getElementById('assign-custom-title').value = '';
+        document.getElementById('assign-leftovers-chk').checked = false;
+        document.getElementById('assign-notes').value = '';
+        document.getElementById('btn-clear-day-meal').style.display = 'none';
+      }
+
+      openModal('assign-meal-modal');
+    }
+
+    function handleSelectRecipeChange() {
+      const sel = document.getElementById('assign-meal-select');
+      const customInput = document.getElementById('assign-custom-title');
+      if (sel.value) {
+        customInput.value = '';
+      }
+    }
+
+    async function submitDayMealAssignment() {
+      const day = document.getElementById('assign-day-val').value;
+      const mealIdVal = document.getElementById('assign-meal-select').value;
+      const customTitle = document.getElementById('assign-custom-title').value.trim();
+      const isLeftovers = document.getElementById('assign-leftovers-chk').checked;
+      const notes = document.getElementById('assign-notes').value.trim();
+
+      const mealId = mealIdVal ? parseInt(mealIdVal) : null;
+      if (!mealId && !customTitle) {
+        alert("Please pick a saved recipe or type a custom dinner title!");
+        return;
+      }
+
+      const payload = {
+        meal_id: mealId,
+        custom_title: customTitle || null,
+        is_leftovers: isLeftovers,
+        notes: notes || null
+      };
+
+      try {
+        const res = await fetch(`/meals/api/plan/${day}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error("Failed to assign meal");
+        closeModal('assign-meal-modal');
+        showToast(`Saved dinner for ${day}!`);
+        await loadMealPlan();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function toggleDayLeftovers(day, newState) {
+      const entry = weeklyPlan[day];
+      if (!entry) return;
+
+      try {
+        await fetch(`/meals/api/plan/${day}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            meal_id: entry.meal_id,
+            custom_title: entry.custom_title,
+            is_leftovers: newState,
+            notes: entry.notes
+          })
+        });
+        entry.is_leftovers = newState;
+        renderMealPlan();
+        showToast(`${day}: ${newState ? 'Marked as leftovers' : 'Marked fresh batch'}`);
+      } catch (err) {
+        console.warn("Toggle leftovers error:", err);
+      }
+    }
+
+    async function clearCurrentDayMeal() {
+      const day = document.getElementById('assign-day-val').value;
+      await clearDayMealDirect(day);
+      closeModal('assign-meal-modal');
+    }
+
+    async function clearDayMealDirect(day) {
+      try {
+        await fetch(`/meals/api/plan/${day}`, { method: 'DELETE', headers: getAuthHeaders() });
+        delete weeklyPlan[day];
+        renderMealPlan();
+        showToast(`Cleared ${day}'s dinner`);
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    // Recipe Details Viewer
+    function viewRecipeDetails(mealId) {
+      const meal = savedMeals.find(m => m.id === mealId);
+      if (!meal) return;
+      viewingMeal = meal;
+
+      document.getElementById('view-recipe-title').innerText = `🍲 ${meal.title}`;
+      document.getElementById('view-recipe-meta').innerHTML = `
+        ${meal.prep_time_min ? `<span>⏱️ ${meal.prep_time_min} mins prep</span>` : ''}
+        <span>👤 Created by ${escapeHtml(meal.created_by || 'Tamir')}</span>
+      `;
+      document.getElementById('view-recipe-notes').innerText = meal.notes || "No extra cooking notes provided.";
+      
+      const ingList = document.getElementById('view-recipe-ingredients');
+      if (meal.ingredients && meal.ingredients.length > 0) {
+        ingList.innerHTML = meal.ingredients.map(i => `
+          <div style="display:flex; justify-content:space-between; padding:6px 10px; background:rgba(30,41,59,0.5); border-radius:var(--radius-sm); font-size:0.84rem;">
+            <span>${escapeHtml(i.ingredient_name)}</span>
+            <span style="color:var(--sky); font-family:var(--font-mono); font-weight:600;">${i.amount || ''} ${i.unit || ''}</span>
+          </div>
+        `).join('');
+      } else {
+        ingList.innerHTML = `<div style="font-size:0.78rem; color:var(--text-dim);">No ingredients listed.</div>`;
+      }
+
+      openModal('view-recipe-modal');
+    }
+
+    function editRecipeFromView() {
+      if (!viewingMeal) return;
+      closeModal('view-recipe-modal');
+      openCreateMealModal(viewingMeal.id);
+    }
+
+    // Create / Edit Saved Meal Modal
+    function openCreateMealModal(mealId = null) {
+      document.getElementById('meal-ingredients-rows').innerHTML = '';
+
+      if (mealId) {
+        const meal = savedMeals.find(m => m.id === mealId);
+        if (!meal) return;
+        document.getElementById('saved-meal-modal-title').innerText = "⚙️ Edit Recipe";
+        document.getElementById('edit-meal-id').value = meal.id;
+        document.getElementById('meal-form-title').value = meal.title || '';
+        document.getElementById('meal-form-time').value = meal.prep_time_min || '';
+        document.getElementById('meal-form-notes').value = meal.notes || '';
+        document.getElementById('btn-delete-saved-meal').style.display = 'inline-block';
+
+        if (meal.ingredients && meal.ingredients.length > 0) {
+          meal.ingredients.forEach(i => addIngredientRow(i.ingredient_name, i.amount, i.unit, i.category));
+        } else {
+          addIngredientRow();
+        }
+      } else {
+        document.getElementById('saved-meal-modal-title').innerText = "🍲 New Recipe";
+        document.getElementById('edit-meal-id').value = '';
+        document.getElementById('meal-form-title').value = '';
+        document.getElementById('meal-form-time').value = '';
+        document.getElementById('meal-form-notes').value = '';
+        document.getElementById('btn-delete-saved-meal').style.display = 'none';
+
+        addIngredientRow();
+        addIngredientRow();
+      }
+
+      openModal('saved-meal-modal');
+    }
+
+    function addIngredientRow(name = '', amt = '', unit = 'pcs', cat = 'Produce') {
+      const container = document.getElementById('meal-ingredients-rows');
+      const row = document.createElement('div');
+      row.className = 'ing-row';
+      row.style.cssText = 'display:grid; grid-template-columns: 2fr 1fr 1fr 1.5fr auto; gap:6px; align-items:center;';
+
+      const unitOptions = ["pcs", "g", "kg", "ml", "L", "pack"].map(u => `<option value="${u}" ${u === unit ? 'selected' : ''}>${u}</option>`).join('');
+      const catOptions = ["Produce", "Bakery", "Meat/Fish", "Dairy/Eggs", "Pantry/Dry", "Frozen", "Household"].map(c => `<option value="${c}" ${c === cat ? 'selected' : ''}>${c}</option>`).join('');
+
+      row.innerHTML = `
+        <input type="text" class="form-control ing-name" placeholder="Item name" value="${escapeHtml(name)}" style="padding:6px 8px; font-size:0.8rem;">
+        <input type="number" step="0.1" class="form-control ing-amt" placeholder="Qty" value="${amt || ''}" style="padding:6px 6px; font-size:0.8rem;">
+        <select class="form-control ing-unit" style="padding:6px 4px; font-size:0.75rem;">
+          ${unitOptions}
+        </select>
+        <select class="form-control ing-cat" style="padding:6px 4px; font-size:0.75rem;">
+          ${catOptions}
+        </select>
+        <button type="button" class="btn-log-action" onclick="this.parentElement.remove()" style="font-size:1.1rem; color:var(--rose);">✕</button>
+      `;
+
+      container.appendChild(row);
+    }
+
+    async function submitSaveMeal() {
+      const mealId = document.getElementById('edit-meal-id').value;
+      const title = document.getElementById('meal-form-title').value.trim();
+      const timeMin = parseInt(document.getElementById('meal-form-time').value) || null;
+      const notes = document.getElementById('meal-form-notes').value.trim();
+
+      if (!title) {
+        alert("Please enter a recipe title");
+        return;
+      }
+
+      const rows = document.querySelectorAll('#meal-ingredients-rows .ing-row');
+      const ingredients = [];
+      rows.forEach(r => {
+        const name = r.querySelector('.ing-name').value.trim();
+        const amt = parseFloat(r.querySelector('.ing-amt').value) || null;
+        const unit = r.querySelector('.ing-unit').value;
+        const cat = r.querySelector('.ing-cat').value;
+        if (name) {
+          ingredients.push({
+            ingredient_name: name,
+            amount: amt,
+            unit: unit,
+            category: cat
+          });
+        }
+      });
+
+      const payload = {
+        title: title,
+        prep_time_min: timeMin,
+        notes: notes || null,
+        created_by: currentProfile,
+        ingredients: ingredients
+      };
+
+      try {
+        let res;
+        if (mealId) {
+          res = await fetch(`/meals/api/meals/${mealId}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload)
+          });
+        } else {
+          res = await fetch('/meals/api/meals', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload)
+          });
+        }
+
+        if (!res.ok) throw new Error("Failed to save recipe");
+        closeModal('saved-meal-modal');
+        showToast(`Saved recipe "${title}"!`);
+        await loadMealPlan();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function deleteCurrentSavedMeal() {
+      const mealId = document.getElementById('edit-meal-id').value;
+      if (!mealId) return;
+      if (!confirm("Delete this recipe from your saved library?")) return;
+
+      try {
+        const res = await fetch(`/meals/api/meals/${mealId}`, { method: 'DELETE', headers: getAuthHeaders() });
+        if (!res.ok) throw new Error("Failed to delete recipe");
+        closeModal('saved-meal-modal');
+        showToast("Deleted recipe");
+        await loadMealPlan();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    // ONE-TAP GROCERY EXPORT WITH INGREDIENT AGGREGATION
+    async function exportWeekToGroceries() {
+      if (!confirm("Add all scheduled dinner ingredients to your Grocery List?\n\n(Matches like 'Onion 2 pcs + Onion 1 pcs = Onion 3 pcs' will be automatically aggregated)")) {
+        return;
+      }
+
+      try {
+        const res = await fetch('/meals/api/export-to-groceries', {
+          method: 'POST',
+          headers: getAuthHeaders()
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Export failed");
+
+        showToast(`🎉 Exported ${data.exported_count} ingredients to Grocery list!`, () => {
+          switchTab('groceries');
+        });
+
+        // Pre-refresh grocery cache
+        loadGroceries();
+      } catch (err) {
+        alert("Export notice: " + err.message);
+      }
     }
 
     // ---------- PLANT TRACKER JAVASCRIPT ENGINE ----------
