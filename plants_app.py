@@ -12,12 +12,13 @@ from models import (
     Plant, WateringLog, PushSubscription, AppConfig,
     GroceryItem, GroceryStaple,
     Meal, MealIngredient, MealPlan,
-    MaintenanceTask
+    MaintenanceTask, ApartmentStatusNote
 )
 from security import is_authenticated, COOKIE_NAME
 from routers import (
     auth_router, health_router, plants_router,
-    groceries_router, meals_router, maintenance_router
+    groceries_router, meals_router, maintenance_router,
+    status_note_router
 )
 from routers.plants import init_plant_db, check_and_notify_due_plants
 from migrations import auto_migrate_schema
@@ -40,7 +41,7 @@ def background_notification_worker():
 
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):
-    # Initialize all SQLAlchemy tables (Plants, Groceries, Meals, Maintenance)
+    # Initialize all SQLAlchemy tables (Plants, Groceries, Meals, Maintenance, Status Note)
     try:
         Base.metadata.create_all(bind=engine)
     except Exception as e:
@@ -55,7 +56,7 @@ async def app_lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Shared Apartment Hub",
-    description="Apartment Hub with Plants, Groceries, Meals, and Maintenance for Tamir & Mikush",
+    description="Apartment Hub with Plants, Groceries, Meals, Maintenance, and Status for Tamir & Mikush",
     lifespan=app_lifespan
 )
 
@@ -78,10 +79,12 @@ PUBLIC_PATHS = [
     "/api/auth/status",
     "/manifest.json",
     "/sw.js",
+    "/icon.svg",
     "/icon-192.png",
     "/icon-512.png",
     "/plants/manifest.json",
     "/plants/sw.js",
+    "/plants/icon.svg",
     "/plants/icon-192.png",
     "/plants/icon-512.png",
 ]
@@ -122,6 +125,7 @@ app.include_router(plants_router)
 app.include_router(groceries_router)
 app.include_router(meals_router)
 app.include_router(maintenance_router)
+app.include_router(status_note_router)
 
 
 # ===================== ROOT & SHELL SERVING =====================
@@ -180,6 +184,13 @@ def serve_root_sw():
     response = FileResponse(os.path.join(BASE_DIR, "sw.js"), media_type="application/javascript")
     response.headers["Service-Worker-Allowed"] = "/"
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
+@app.get("/icon.svg")
+def serve_root_icon_svg():
+    response = FileResponse(os.path.join(BASE_DIR, "icon.svg"), media_type="image/svg+xml")
+    response.headers["Cache-Control"] = "public, max-age=86400"
     return response
 
 

@@ -3,6 +3,7 @@ from models.plants import Plant, WateringLog, PushSubscription, AppConfig
 from models.groceries import GroceryItem, GroceryStaple, GROCERY_CATEGORIES, GROCERY_UNITS
 from models.meals import Meal, MealIngredient, MealPlan
 from models.maintenance import MaintenanceTask
+from models.status import ApartmentStatusNote
 
 __all__ = [
     "Base",
@@ -18,4 +19,5 @@ __all__ = [
     "MealIngredient",
     "MealPlan",
     "MaintenanceTask",
+    "ApartmentStatusNote",
 ]

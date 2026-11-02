@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives import serialization
 
 from database import engine, SessionLocal, Base, get_db
 from models.plants import Plant, WateringLog, PushSubscription, AppConfig
-from security import is_authenticated
+from security import is_authenticated, get_active_profile
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -542,7 +542,7 @@ def get_plant_details(plant_id: int, db: Session = Depends(get_db)):
     metrics = calculate_plant_metrics(plant)
 
     logs_data = []
-    for log in reversed(plant.watering_logs):
+    for log in plant.watering_logs:
         logs_data.append({
             "id": log.id,
             "watered_at": log.watered_at.isoformat() if log.watered_at else None,
@@ -551,7 +551,8 @@ def get_plant_details(plant_id: int, db: Session = Depends(get_db)):
             "raw_elapsed_days": round(log.raw_elapsed_hours / 24.0, 1) if log.raw_elapsed_hours else None,
             "effective_interval_hours": log.effective_interval_hours,
             "effective_interval_days": round(log.effective_interval_hours / 24.0, 1) if log.effective_interval_hours else None,
-            "notes": log.notes
+            "notes": log.notes,
+            "watered_by": getattr(log, 'watered_by', None) or "Tamir"
         })
 
     chart_points = [
@@ -562,7 +563,7 @@ def get_plant_details(plant_id: int, db: Session = Depends(get_db)):
             "effective_days": round(log.effective_interval_hours / 24.0, 1) if log.effective_interval_hours else 0,
             "soil_state": log.soil_state
         }
-        for log in plant.watering_logs
+        for log in reversed(plant.watering_logs)
         if log.effective_interval_hours is not None
     ]
 
@@ -608,18 +609,20 @@ def delete_plant(plant_id: int, db: Session = Depends(get_db)):
 
 
 @plants_router.post("/api/water/{plant_id}")
-def water_plant(plant_id: int, payload: WaterLogCreate, db: Session = Depends(get_db)):
+def water_plant(plant_id: int, payload: WaterLogCreate, request: Request, db: Session = Depends(get_db)):
     plant = db.query(Plant).filter(Plant.id == plant_id).first()
     if not plant:
         raise HTTPException(status_code=404, detail="Plant not found")
 
+    active_user = get_active_profile(request)
     watered_at = payload.watered_at or datetime.datetime.utcnow()
 
     new_log = WateringLog(
         plant_id=plant_id,
         watered_at=watered_at,
         soil_state=payload.soil_state.lower().strip(),
-        notes=payload.notes.strip() if payload.notes else None
+        notes=payload.notes.strip() if payload.notes else None,
+        watered_by=active_user
     )
     db.add(new_log)
     plant.last_notified_at = None

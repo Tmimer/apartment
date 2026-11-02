@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -10,10 +10,10 @@ class Plant(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String, nullable=False)
     species_or_type = Column(String, nullable=True)
-    location_group = Column(String, nullable=False, default="Apartment")
+    location_group = Column(String, nullable=True)
     pot_size_liters = Column(Float, nullable=True)
-    growth_stage = Column(String, nullable=False, default="Vegetative")
-    initial_interval_hours = Column(Float, nullable=False, default=72.0)
+    growth_stage = Column(String, nullable=True)
+    initial_interval_hours = Column(Float, nullable=False, default=168.0)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     last_notified_at = Column(DateTime, nullable=True)
 
@@ -21,7 +21,7 @@ class Plant(Base):
         "WateringLog",
         back_populates="plant",
         cascade="all, delete-orphan",
-        order_by="WateringLog.watered_at.asc()"
+        order_by="WateringLog.watered_at.desc()"
     )
 
 
@@ -35,6 +35,7 @@ class WateringLog(Base):
     raw_elapsed_hours = Column(Float, nullable=True)
     effective_interval_hours = Column(Float, nullable=True)
     notes = Column(String, nullable=True)
+    watered_by = Column(String(50), nullable=True, default="Tamir")
 
     plant = relationship("Plant", back_populates="watering_logs")
 

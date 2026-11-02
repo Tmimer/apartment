@@ -1,7 +1,8 @@
 // Service Worker for Shared Apartment Hub (Tamir & Mikush)
-const CACHE_NAME = 'apartment-hub-v6';
+const CACHE_NAME = 'apartment-hub-v7';
 const ASSETS_TO_CACHE = [
   '/manifest.json',
+  '/icon.svg',
   '/icon-192.png',
   '/icon-512.png'
 ];
@@ -24,7 +25,7 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Never intercept or cache API requests (plants, groceries, meals, maintenance, auth)
+  // Never intercept or cache API requests (plants, groceries, meals, maintenance, status-note, auth)
   if (e.request.url.includes('/api/')) {
     e.respondWith(fetch(e.request));
     return;
@@ -39,7 +40,7 @@ self.addEventListener('fetch', (e) => {
   }
 
   // Cache first with network fallback for static icons/manifest
-  if (e.request.url.includes('/icon-') || e.request.url.includes('/manifest.json')) {
+  if (e.request.url.includes('/icon') || e.request.url.includes('/manifest.json')) {
     e.respondWith(
       caches.match(e.request).then((cached) => cached || fetch(e.request))
     );

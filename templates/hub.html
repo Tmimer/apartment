@@ -9,22 +9,16 @@
   <meta name="apple-mobile-web-app-title" content="ApartmentHub">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
   <link rel="apple-touch-icon" href="/icon-192.png">
-  <link rel="icon" type="image/png" href="/icon-192.png">
   <title>🏠 Shared Apartment Hub | Tamir &amp; Mikush</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0b0f19;
-      --card-bg: #131b2e;
-      --card-border: #1f2a44;
-      --card-hover: #19233c;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --text-dim: #64748b;
-      
       --emerald: #10b981;
       --emerald-glow: rgba(16, 185, 129, 0.2);
       --amber: #f59e0b;
@@ -44,6 +38,48 @@
       --font-mono: 'JetBrains Mono', monospace;
     }
 
+    /* ── TAMIR THEME (Sleek Dark Slate / Obsidian) ── */
+    body, body[data-theme="tamir"] {
+      --bg: #0b111e;
+      --bg-gradient: radial-gradient(circle at top right, #131c31 0%, #0b111e 65%);
+      --card-bg: #131b2e;
+      --card-border: #1f2a44;
+      --card-hover: #192540;
+      --header-bg: rgba(15, 23, 42, 0.88);
+      --nav-bg: rgba(15, 23, 42, 0.94);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #10b981;
+      --accent-glow: rgba(16, 185, 129, 0.22);
+      --accent-contrast: #042f2e;
+      --accent-grad: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      --radius-card: 14px;
+      --card-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    /* ── MIKUSH THEME (Warm, Cute, Aesthetic Pastel & Cozy Glass) ── */
+    body[data-theme="mikush"] {
+      --bg: #150d18;
+      --bg-gradient: radial-gradient(circle at top right, #2c142e 0%, #170d19 55%, #120914 100%);
+      --card-bg: #211326;
+      --card-border: rgba(244, 63, 94, 0.24);
+      --card-hover: #2b1832;
+      --header-bg: rgba(29, 15, 33, 0.90);
+      --nav-bg: rgba(29, 15, 33, 0.95);
+      --text-main: #fff0f3;
+      --text-muted: #e7bed0;
+      --text-dim: #ab8196;
+      --accent: #f43f5e;
+      --accent-glow: rgba(244, 63, 94, 0.32);
+      --accent-contrast: #ffffff;
+      --accent-grad: linear-gradient(135deg, #fb7185 0%, #f43f5e 50%, #ec4899 100%);
+      --radius-card: 20px;
+      --radius-md: 18px;
+      --radius-lg: 24px;
+      --card-shadow: 0 6px 24px rgba(244, 63, 94, 0.10);
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -51,9 +87,23 @@
       -webkit-tap-highlight-color: transparent;
     }
 
+    html {
+      overflow-x: hidden;
+      max-width: 100vw;
+      width: 100%;
+      box-sizing: border-box;
+      -webkit-text-size-adjust: 100%;
+    }
+
     body {
+      overflow-x: hidden;
+      max-width: 100vw;
+      width: 100%;
+      box-sizing: border-box;
       font-family: var(--font-sans);
       background-color: var(--bg);
+      background-image: var(--bg-gradient);
+      background-attachment: fixed;
       color: var(--text-main);
       min-height: 100vh;
       display: flex;
@@ -65,75 +115,98 @@
     /* ── TOP HUB HEADER ── */
     .hub-header {
       width: 100%;
-      background: rgba(15, 23, 42, 0.88);
+      max-width: 100vw;
+      box-sizing: border-box;
+      background: var(--header-bg);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--card-border);
       position: sticky;
       top: 0;
       z-index: 60;
-      padding: 10px 14px;
+      padding: 8px 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      overflow-x: hidden;
     }
 
     .hub-brand {
       display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 6px;
       font-weight: 800;
-      font-size: 0.95rem;
+      font-size: 0.88rem;
       color: var(--text-main);
       text-decoration: none;
       flex-shrink: 0;
+      min-width: 0;
+    }
+
+    .header-greeting {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--accent);
+      white-space: nowrap;
+      display: none;
+    }
+    @media (min-width: 520px) {
+      .header-greeting { display: block; }
     }
 
     /* Profile Switcher in Header */
     .header-profile-switcher {
       display: flex;
-      background: rgba(30, 41, 59, 0.7);
+      background: rgba(30, 41, 59, 0.6);
       border: 1px solid var(--card-border);
       border-radius: var(--radius-full);
       padding: 2px;
       gap: 2px;
+      flex-shrink: 0;
     }
 
     .hdr-prof-btn {
-      padding: 4px 10px;
+      padding: 4px 8px;
       border: none;
       background: transparent;
       color: var(--text-muted);
-      font-size: 0.76rem;
+      font-size: 0.74rem;
       font-weight: 700;
       border-radius: var(--radius-full);
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
       transition: all 0.2s ease;
+      white-space: nowrap;
     }
 
-    .hdr-prof-btn.active {
-      background: var(--emerald);
+    .hdr-prof-btn.active#hdr-btn-tamir {
+      background: #10b981;
       color: #042f2e;
-      box-shadow: 0 1px 6px var(--emerald-glow);
+      box-shadow: 0 1px 8px rgba(16, 185, 129, 0.3);
+    }
+    .hdr-prof-btn.active#hdr-btn-mikush {
+      background: #f43f5e;
+      color: #ffffff;
+      box-shadow: 0 1px 8px rgba(244, 63, 94, 0.35);
     }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
+      flex-shrink: 0;
     }
 
     .btn-notify-toggle {
       background: rgba(30, 41, 59, 0.7);
       border: 1px solid var(--card-border);
       color: var(--text-muted);
-      padding: 5px 9px;
+      padding: 4px 8px;
       border-radius: var(--radius-full);
-      font-size: 0.75rem;
+      font-size: 0.74rem;
       font-weight: 700;
       cursor: pointer;
       display: inline-flex;
@@ -148,43 +221,61 @@
     }
 
     .btn-install-app {
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      color: #042f2e;
+      background: var(--accent-grad);
+      color: var(--accent-contrast);
       border: none;
-      padding: 5px 10px;
+      padding: 4px 8px;
       border-radius: var(--radius-full);
-      font-size: 0.75rem;
+      font-size: 0.74rem;
       font-weight: 700;
       cursor: pointer;
       display: none;
       align-items: center;
-      gap: 4px;
-      box-shadow: 0 2px 8px var(--emerald-glow);
+      gap: 3px;
+      box-shadow: 0 2px 8px var(--accent-glow);
     }
 
-    .btn-logout {
+    /* Subtle Minimal Logout Button */
+    .btn-logout-subtle {
       background: transparent;
-      border: 1px solid var(--card-border);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       color: var(--text-dim);
-      padding: 5px 8px;
+      width: 28px;
+      height: 28px;
       border-radius: var(--radius-full);
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      transition: all 0.15s;
+      justify-content: center;
+      opacity: 0.45;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+      padding: 0;
     }
-    .btn-logout:hover {
+    .btn-logout-subtle:hover, .btn-logout-subtle:focus {
+      opacity: 1;
       color: var(--rose);
       border-color: var(--rose);
+      background: rgba(244, 63, 94, 0.12);
+    }
+
+    @media (max-width: 380px) {
+      .hub-brand-text { display: none; }
+      .hub-header { padding: 6px 8px; }
+      .hdr-prof-btn { padding: 3px 6px; font-size: 0.70rem; }
     }
 
     /* ── TAB PANES ── */
     .tab-pane {
       display: none;
       width: 100%;
+      max-width: 100vw;
+      box-sizing: border-box;
+      overflow-x: hidden;
       flex-direction: column;
       align-items: center;
+      min-width: 0;
     }
     .tab-pane.active {
       display: flex;
@@ -193,10 +284,13 @@
     .container {
       width: 100%;
       max-width: 680px;
-      padding: 14px 16px;
+      padding: 12px 14px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
+      box-sizing: border-box;
+      overflow-x: hidden;
+      min-width: 0;
     }
 
     /* ── BOTTOM NAVIGATION BAR ── */
@@ -205,8 +299,11 @@
       bottom: 0;
       left: 0;
       right: 0;
+      width: 100%;
+      max-width: 100vw;
+      box-sizing: border-box;
       height: 64px;
-      background: rgba(15, 23, 42, 0.94);
+      background: var(--nav-bg);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
       border-top: 1px solid var(--card-border);
@@ -245,7 +342,7 @@
     }
 
     .nav-tab.active {
-      color: var(--emerald);
+      color: var(--accent);
     }
 
     .nav-tab.active .tab-icon {
@@ -258,10 +355,10 @@
       top: 0;
       left: 30%;
       right: 30%;
-      height: 2.5px;
-      background: var(--emerald);
-      border-radius: 0 0 4px 4px;
-      box-shadow: 0 2px 8px var(--emerald-glow);
+      height: 3px;
+      background: var(--accent);
+      border-radius: 0 0 3px 3px;
+      box-shadow: 0 1px 8px var(--accent-glow);
     }
 
     .nav-badge {
@@ -1059,6 +1156,137 @@
     .stage-opt:hover { background: rgba(255, 255, 255, 0.08); }
 
     /* Toast */
+    
+    /* ── SHARED FRIDGE MAGNET / STATUS NOTE ── */
+    .fridge-magnet-bar {
+      width: 100%;
+      max-width: 680px;
+      margin: 8px auto 0 auto;
+      padding: 9px 14px;
+      background: var(--card-bg);
+      border: 1px dashed var(--card-border);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      box-shadow: var(--card-shadow);
+      transition: transform 0.15s ease, border-color 0.15s ease;
+      box-sizing: border-box;
+    }
+    .fridge-magnet-bar:hover, .fridge-magnet-bar:active {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+    }
+    .magnet-pin {
+      font-size: 1.15rem;
+      flex-shrink: 0;
+      animation: gentleWiggle 5s ease-in-out infinite;
+    }
+    @keyframes gentleWiggle {
+      0%, 92%, 100% { transform: rotate(0deg); }
+      94% { transform: rotate(-10deg); }
+      97% { transform: rotate(10deg); }
+    }
+    .magnet-content {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .magnet-text {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .magnet-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .magnet-time {
+      font-size: 0.70rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+    .magnet-edit-hint {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+
+    /* ── USER PROFILE PILL BADGES ── */
+    .user-pill {
+      font-size: 0.70rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: var(--radius-full);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .user-pill.pill-tamir {
+      background: rgba(16, 185, 129, 0.14);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.32);
+    }
+    .user-pill.pill-mikush {
+      background: rgba(244, 63, 94, 0.16);
+      color: #fda4af;
+      border: 1px solid rgba(244, 63, 94, 0.38);
+    }
+
+    /* ── PRESET PILLS FOR STATUS MODAL ── */
+    .preset-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 11px;
+      border-radius: var(--radius-full);
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .preset-pill:hover, .preset-pill:active {
+      border-color: var(--accent);
+      background: var(--card-hover);
+    }
+
+    /* ── SPARKLE / HEART MICRO-ANIMATION ── */
+    .sparkle-particle {
+      position: fixed;
+      pointer-events: none;
+      z-index: 99999;
+      font-size: 1.25rem;
+      animation: floatFadeOut 0.85s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+      user-select: none;
+    }
+
+    @keyframes floatFadeOut {
+      0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(0.6);
+      }
+      50% {
+        opacity: 1;
+        transform: translate(var(--tx), var(--ty)) scale(1.3);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(var(--tx), calc(var(--ty) - 24px)) scale(0.7);
+      }
+    }
+
     .toast-container {
       position: fixed;
       bottom: 80px;
@@ -1085,9 +1313,12 @@
   <!-- ── TOP HUB HEADER ── -->
   <header class="hub-header">
     <a href="/" class="hub-brand">
-      <span style="font-size: 1.25rem;">🏠</span>
-      <span>Apartment Hub</span>
+      <img src="/icon.svg" alt="Hub" style="width:24px; height:24px; border-radius:6px; flex-shrink:0;">
+      <span class="hub-brand-text">Apartment Hub</span>
     </a>
+
+    <!-- Dynamic Greeting -->
+    <div class="header-greeting" id="hdr-greeting">Hey Tamir 🌿</div>
 
     <!-- Profile Switcher: Tamir | Mikush -->
     <div class="header-profile-switcher" title="Active Household Profile">
@@ -1102,12 +1333,29 @@
     <div class="header-actions">
       <button id="btn-notify" class="btn-notify-toggle" onclick="openNotifyModal()" title="Watering Alerts">
         <span>🔔</span>
-        <span id="notify-label">Alerts</span>
+        <span id="notify-label" style="display:none;">Alerts</span>
       </button>
-      <button id="btn-install-pwa" class="btn-install-app" onclick="triggerPWAInstall()">📲 Install</button>
-      <button class="btn-logout" onclick="handleLogout()" title="Lock / Logout">🔒</button>
+      <button id="btn-install-pwa" class="btn-install-app" onclick="triggerPWAInstall()">📲</button>
+      <button class="btn-logout-subtle" onclick="handleLogout()" title="Lock / Logout" aria-label="Logout">
+        <span>🔒</span>
+      </button>
     </div>
   </header>
+
+  <!-- ── SHARED FRIDGE MAGNET / STATUS NOTE BANNER ── -->
+  <div style="width: 100%; display: flex; justify-content: center; padding: 0 14px; box-sizing: border-box;">
+    <div class="fridge-magnet-bar" id="fridge-magnet-bar" onclick="openFridgeNoteModal()" title="Tap to write/edit apartment note">
+      <div class="magnet-pin">🧲</div>
+      <div class="magnet-content">
+        <span class="magnet-text" id="magnet-note-text">Welcome home! Tap here to leave a note 💌</span>
+      </div>
+      <div class="magnet-meta">
+        <span class="user-pill pill-tamir" id="magnet-author-pill">🌿 Tamir</span>
+        <span class="magnet-time" id="magnet-note-time">just now</span>
+      </div>
+      <span class="magnet-edit-hint">✎</span>
+    </div>
+  </div>
 
   <!-- ══════════════════════════════════════════════════════
        TAB 1: PLANTS (PRESERVED FULL EXISTING TRACKER)
@@ -1280,7 +1528,7 @@
        TAB 4: APARTMENT MAINTENANCE (🔧 TASKS)
   ══════════════════════════════════════════════════════ -->
   <section id="tab-maintenance" class="tab-pane">
-    <main class="app-main">
+    <main class="container">
 
       <!-- Maintenance Summary Banner -->
       <div style="background:linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(16, 185, 129, 0.08)); border:1px solid rgba(245, 158, 11, 0.25); border-radius:var(--radius-lg); padding:16px; margin-bottom:14px;">
@@ -1351,6 +1599,41 @@
       <span class="nav-badge" id="badge-maintenance" style="display:none;">0</span>
     </button>
   </nav>
+
+  <!-- ── FRIDGE NOTE MODAL ── -->
+  <div class="modal-overlay" id="fridge-note-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">🧲 Fridge Magnet Note</div>
+        <button class="btn-close-modal" onclick="closeModal('fridge-note-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:10px;">
+          Leave a note or status for your partner. Updates live on both phones!
+        </p>
+        <div class="form-group">
+          <label>Your Message</label>
+          <textarea id="fridge-note-input" class="form-control" rows="3" maxlength="280" placeholder="e.g. At the grocery store now, need anything?"></textarea>
+        </div>
+
+        <div style="margin-top:10px;">
+          <label style="font-size:0.75rem; color:var(--text-dim); font-weight:700; text-transform:uppercase; margin-bottom:6px; display:block;">Quick Presets</label>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            <button class="preset-pill" onclick="setFridgePreset('🛒 At the grocery store, need anything?')">🛒 At grocery store</button>
+            <button class="preset-pill" onclick="setFridgePreset('🍕 Dinner ordered / Food on the way!')">🍕 Dinner ordered</button>
+            <button class="preset-pill" onclick="setFridgePreset('🔥 Oven is preheating')">🔥 Oven preheating</button>
+            <button class="preset-pill" onclick="setFridgePreset('🏃 On my way home!')">🏃 On my way home</button>
+            <button class="preset-pill" onclick="setFridgePreset('❤️ Love you, have a wonderful day!')">❤️ Love you!</button>
+            <button class="preset-pill" onclick="setFridgePreset('✨ Apartment clean and fresh')">✨ Apartment tidy</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('fridge-note-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitFridgeNote()">Save Note 💌</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ── TOAST NOTIFICATION (WITH 5S UNDO) ── -->
   <div id="toast" class="toast-container">
@@ -1673,18 +1956,128 @@
        JAVASCRIPT: APP SHELL, ROUTING, PROFILES, TABS & PWA
   ══════════════════════════════════════════════════════ -->
   <script>
-    // ---------- ACTIVE USER PROFILE ----------
+    // ---------- ACTIVE USER PROFILE & THEMING ----------
     let currentProfile = localStorage.getItem('apartment_user') || 'Tamir';
 
     function switchActiveUser(user, showNotification = true) {
       currentProfile = user;
       localStorage.setItem('apartment_user', user);
+      document.body.setAttribute('data-theme', user.toLowerCase());
+
       const bTamir = document.getElementById('hdr-btn-tamir');
       const bMikush = document.getElementById('hdr-btn-mikush');
       if (bTamir) bTamir.classList.toggle('active', user === 'Tamir');
       if (bMikush) bMikush.classList.toggle('active', user === 'Mikush');
+
+      const greetingEl = document.getElementById('hdr-greeting');
+      if (greetingEl) {
+        greetingEl.innerText = user === 'Mikush' ? 'Hi Mikush 🌸' : 'Hey Tamir 🌿';
+      }
+
+      // Update theme-color meta tag
+      const metaTheme = document.querySelector('meta[name="theme-color"]');
+      if (metaTheme) {
+        metaTheme.setAttribute('content', user === 'Mikush' ? '#150d18' : '#0b111e');
+      }
+
       if (showNotification) {
-        showToast(`Switched profile to ${user}`);
+        showToast(user === 'Mikush' ? '🌸 Welcome back Mikush!' : '🌿 Switched to Tamir');
+        triggerSparkleBurst(window.innerWidth / 2, 70, user === 'Mikush');
+      }
+    }
+
+    // ---------- SPARKLE / HEART MICRO-ANIMATIONS ----------
+    function triggerSparkleBurst(x, y, isMikush) {
+      const symbols = isMikush ? ['🌸', '✨', '💖', '💕', '🌷', '🎀'] : ['🌿', '✨', '🌱', '💧', '⭐', '🪴'];
+      for (let i = 0; i < 7; i++) {
+        const el = document.createElement('div');
+        el.className = 'sparkle-particle';
+        el.innerText = symbols[Math.floor(Math.random() * symbols.length)];
+        const angle = (Math.PI * 2 * i) / 7 + (Math.random() * 0.2 - 0.1);
+        const dist = 35 + Math.random() * 30;
+        const tx = Math.cos(angle) * dist;
+        const ty = Math.sin(angle) * dist - 25;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        el.style.setProperty('--tx', `${tx}px`);
+        el.style.setProperty('--ty', `${ty}px`);
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 850);
+      }
+    }
+
+    // ---------- SHARED FRIDGE MAGNET / STATUS NOTE ----------
+    let currentFridgeNote = null;
+
+    async function loadFridgeNote() {
+      try {
+        const res = await fetch('/api/status-note', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const note = await res.json();
+        currentFridgeNote = note;
+        renderFridgeNote(note);
+      } catch (err) {
+        // Silent on polling failure
+      }
+    }
+
+    function renderFridgeNote(note) {
+      if (!note) return;
+      const textEl = document.getElementById('magnet-note-text');
+      const authorPill = document.getElementById('magnet-author-pill');
+      const timeEl = document.getElementById('magnet-note-time');
+
+      if (textEl) textEl.innerText = note.message;
+      if (authorPill) {
+        const isMikush = note.author === 'Mikush';
+        authorPill.className = `user-pill ${isMikush ? 'pill-mikush' : 'pill-tamir'}`;
+        authorPill.innerText = isMikush ? '🌸 Mikush' : (note.author === 'Tamir' ? '🌿 Tamir' : '🏠 Apartment');
+      }
+      if (timeEl) timeEl.innerText = note.time_ago || 'just now';
+    }
+
+    function openFridgeNoteModal() {
+      const input = document.getElementById('fridge-note-input');
+      if (input) {
+        input.value = currentFridgeNote ? currentFridgeNote.message : '';
+      }
+      openModal('fridge-note-modal');
+      setTimeout(() => {
+        if (input) input.focus();
+      }, 100);
+    }
+
+    function setFridgePreset(text) {
+      const input = document.getElementById('fridge-note-input');
+      if (input) {
+        input.value = text;
+        input.focus();
+      }
+    }
+
+    async function submitFridgeNote() {
+      const input = document.getElementById('fridge-note-input');
+      const msg = input ? input.value.trim() : '';
+      if (!msg) {
+        alert("Please enter a note message!");
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/status-note', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ message: msg })
+        });
+        if (!res.ok) throw new Error("Failed to save fridge note");
+        const data = await res.json();
+        closeModal('fridge-note-modal');
+        currentFridgeNote = data.note;
+        renderFridgeNote(data.note);
+        showToast(`🧲 Note posted by ${currentProfile}!`);
+        triggerSparkleBurst(window.innerWidth / 2, 80, currentProfile === 'Mikush');
+      } catch (err) {
+        alert(err.message);
       }
     }
 
@@ -1803,8 +2196,11 @@
 
     // Visibility listener: pause when minimized, sync immediately when tab becomes visible
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && currentTab === 'groceries') {
-        pollGrocerySync();
+      if (document.visibilityState === 'visible') {
+        loadFridgeNote();
+        if (currentTab === 'groceries') {
+          pollGrocerySync();
+        }
       }
     });
 
@@ -1929,10 +2325,12 @@
           html += `<div class="grocery-category-header">${getCategoryIcon(cat)} ${cat} (${grouped[cat].length})</div>`;
           grouped[cat].forEach(item => {
             const qtyStr = item.amount ? `${item.amount} ${item.unit || ''}`.trim() : (item.unit || '');
-            const addedTag = item.added_by === 'Mikush' ? '🌸 Mikush' : '👤 Tamir';
+            const userPill = item.added_by === 'Mikush' ?
+              `<span class="user-pill pill-mikush">🌸 Mikush</span>` :
+              `<span class="user-pill pill-tamir">🌿 Tamir</span>`;
             html += `
               <div class="grocery-item-card" id="grocery-item-${item.id}">
-                <div class="grocery-left" onclick="toggleGroceryCheck(${item.id})">
+                <div class="grocery-left" onclick="toggleGroceryCheck(${item.id}, event)">
                   <div class="grocery-checkbox" title="Tap to check off"></div>
                   <div>
                     <span class="grocery-name">${escapeHtml(item.name)}</span>
@@ -1940,7 +2338,7 @@
                   </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                  <span class="grocery-by">${addedTag}</span>
+                  ${userPill}
                   <button class="btn-log-action" onclick="deleteGroceryItem(${item.id})" title="Delete item">🗑️</button>
                 </div>
               </div>
@@ -1954,10 +2352,12 @@
         html += `<div class="grocery-category-header" style="color:var(--text-dim); margin-top:16px;">✓ In Cart / Checked (${checkedItems.length})</div>`;
         checkedItems.forEach(item => {
           const qtyStr = item.amount ? `${item.amount} ${item.unit || ''}`.trim() : (item.unit || '');
-          const addedTag = item.added_by === 'Mikush' ? '🌸' : '👤';
+          const userPill = item.added_by === 'Mikush' ?
+            `<span class="user-pill pill-mikush">🌸 Mikush</span>` :
+            `<span class="user-pill pill-tamir">🌿 Tamir</span>`;
           html += `
             <div class="grocery-item-card checked" id="grocery-item-${item.id}">
-              <div class="grocery-left" onclick="toggleGroceryCheck(${item.id})">
+              <div class="grocery-left" onclick="toggleGroceryCheck(${item.id}, event)">
                 <div class="grocery-checkbox checked" title="Tap to uncheck">✓</div>
                 <div>
                   <span class="grocery-name">${escapeHtml(item.name)}</span>
@@ -1965,7 +2365,7 @@
                 </div>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
-                <span class="grocery-by">${addedTag}</span>
+                ${userPill}
                 <button class="btn-log-action" onclick="deleteGroceryItem(${item.id})" title="Delete item">🗑️</button>
               </div>
             </div>
@@ -1991,7 +2391,7 @@
     }
 
     // Toggle Check / Uncheck
-    async function toggleGroceryCheck(id) {
+    async function toggleGroceryCheck(id, event) {
       const item = groceryItems.find(i => i.id === id);
       if (!item) return;
 
@@ -1999,6 +2399,12 @@
       item.is_checked = newState;
       renderGroceries();
       localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
+
+      if (newState) {
+        const x = event && event.clientX ? event.clientX : window.innerWidth / 2;
+        const y = event && event.clientY ? event.clientY : window.innerHeight / 2;
+        triggerSparkleBurst(x, y, currentProfile === 'Mikush');
+      }
 
       try {
         const res = await fetch(`/groceries/api/items/${id}`, {
@@ -2918,7 +3324,8 @@
           body: JSON.stringify({ soil_state: soilState, notes: notes })
         });
         if (!res.ok) throw new Error("Failed to log watering");
-        showToast("💧 Logged watering!");
+        showToast(currentProfile === 'Mikush' ? "🌸 Watered with love!" : "💧 Logged watering!");
+        triggerSparkleBurst(window.innerWidth / 2, window.innerHeight / 2, currentProfile === 'Mikush');
         await fetchPlants();
       } catch (err) {
         alert("Error logging watering: " + err.message);
@@ -3101,10 +3508,14 @@
         const dateStr = log.watered_at ? new Date(log.watered_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
         const intervalInfo = log.raw_elapsed_days ? `Interval: ${log.raw_elapsed_days}d` : 'Initial baseline';
 
+        const userPill = log.watered_by === 'Mikush' ?
+          `<span class="user-pill pill-mikush">🌸 Mikush</span>` :
+          `<span class="user-pill pill-tamir">🌿 Tamir</span>`;
+
         return `
           <div class="history-item">
             <div class="history-info">
-              <div class="history-date">${dateStr} · <span style="font-weight:700;">${stateBadge}</span></div>
+              <div class="history-date">${dateStr} · <span style="font-weight:700;">${stateBadge}</span> · ${userPill}</div>
               <div class="history-meta">
                 <span>${intervalInfo}</span>
                 ${log.notes ? `<span>· "${escapeHtml(log.notes)}"</span>` : ''}
@@ -3522,8 +3933,12 @@
           cardBorderColor = 'rgba(245, 158, 11, 0.4)';
         }
 
+        const userPill = t.last_completed_by === 'Mikush' ?
+          `<span class="user-pill pill-mikush">🌸 Mikush</span>` :
+          `<span class="user-pill pill-tamir">🌿 Tamir</span>`;
+
         const lastDoneStr = t.last_completed_at ? 
-          `Last done ${t.days_elapsed}d ago by ${t.last_completed_by || 'Tamir'}` : 
+          `Last done ${t.days_elapsed}d ago by ${userPill}` : 
           'Never completed yet';
 
         return `
@@ -3562,7 +3977,7 @@
             <div style="display:flex; align-items:center; gap:8px;">
               <button 
                 class="btn-water-quick" 
-                onclick="markMaintenanceDone(${t.id})"
+                onclick="markMaintenanceDone(${t.id}, event)"
                 style="flex:1; padding:8px 12px; font-size:0.85rem; font-weight:700;"
               >
                 ✅ Mark Done
@@ -3581,7 +3996,7 @@
       }).join('');
     }
 
-    async function markMaintenanceDone(taskId) {
+    async function markMaintenanceDone(taskId, event) {
       try {
         const res = await fetch(`/maintenance/api/complete/${taskId}`, {
           method: 'POST',
@@ -3589,6 +4004,9 @@
         });
         if (!res.ok) throw new Error('Failed to complete task');
         const data = await res.json();
+        const x = event && event.clientX ? event.clientX : window.innerWidth / 2;
+        const y = event && event.clientY ? event.clientY : window.innerHeight / 2;
+        triggerSparkleBurst(x, y, currentProfile === 'Mikush');
         showToast(`✅ ${data.message}`);
         await loadMaintenanceTasks();
       } catch (err) {
@@ -3679,10 +4097,20 @@
 
       switchTab(initialTab);
 
-      // 3. Register Service Worker
+      // 3. Load Shared Fridge Magnet / Status Note
+      loadFridgeNote();
+
+      // 4. Register Service Worker
       registerSW().then(() => checkNotificationStatus());
 
-      // 4. Periodic background sync (60s)
+      // 5. Periodic status note sync (10s when active)
+      setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          loadFridgeNote();
+        }
+      }, 10000);
+
+      // 6. Periodic background sync (60s)
       setInterval(() => {
         if (currentTab === 'plants') fetchPlants();
         else if (currentTab === 'groceries') loadGroceries();
