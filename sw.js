@@ -1,10 +1,11 @@
-// Service Worker for Tmimer's Plants PWA
-const CACHE_NAME = 'plant-tracker-v4';
+// Service Worker for Shared Apartment Hub (Tamir & Mikush)
+const CACHE_NAME = 'apartment-hub-v5';
 const ASSETS_TO_CACHE = [
-  '/plants',
-  '/plants/manifest.json',
-  '/plants/icon-192.png',
-  '/plants/icon-512.png'
+  '/',
+  '/login',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png'
 ];
 
 self.addEventListener('install', (e) => {
@@ -24,24 +25,32 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Network first, fallback to cache for HTML shell
+  // Network first for HTML navigations, fallback to cached shell
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match('/plants'))
+      fetch(e.request).catch(() => caches.match('/') || caches.match('/login'))
     );
     return;
   }
-  e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request))
-  );
+
+  // Cache first with network fallback for static icons/manifest
+  if (e.request.url.includes('/icon-') || e.request.url.includes('/manifest.json')) {
+    e.respondWith(
+      caches.match(e.request).then((cached) => cached || fetch(e.request))
+    );
+    return;
+  }
+
+  // Network first for APIs and dynamic data
+  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
 });
 
 // Push notification listener
 self.addEventListener('push', (event) => {
   let data = {
-    title: "🌿 Tmimer's Plants",
-    body: "One of your plants is due for watering!",
-    url: "/plants"
+    title: "🏠 Apartment Hub",
+    body: "You have an apartment notification!",
+    url: "/"
   };
 
   if (event.data) {
@@ -54,16 +63,16 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: '/plants/icon-192.png',
-    badge: '/plants/icon-192.png',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     vibrate: [200, 100, 200],
-    tag: 'plant-watering-alert',
+    tag: 'apartment-notification',
     renotify: true,
     data: {
-      url: data.url || '/plants'
+      url: data.url || '/'
     },
     actions: [
-      { action: 'open', title: 'Open Tracker' }
+      { action: 'open', title: 'Open Hub' }
     ]
   };
 
@@ -75,12 +84,12 @@ self.addEventListener('push', (event) => {
 // Click notification listener
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/plants';
+  const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url.includes('/plants') && 'focus' in client) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
           return client.focus();
         }
       }
