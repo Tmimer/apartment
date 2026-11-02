@@ -8,10 +8,19 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, JSON
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, SessionLocal, Base
-from models import Plant, WateringLog, PushSubscription, AppConfig, GroceryItem, GroceryStaple, Meal, MealIngredient, MealPlan
+from models import (
+    Plant, WateringLog, PushSubscription, AppConfig,
+    GroceryItem, GroceryStaple,
+    Meal, MealIngredient, MealPlan,
+    MaintenanceTask
+)
 from security import is_authenticated, COOKIE_NAME
-from routers import auth_router, health_router, plants_router, groceries_router, meals_router
+from routers import (
+    auth_router, health_router, plants_router,
+    groceries_router, meals_router, maintenance_router
+)
 from routers.plants import init_plant_db, check_and_notify_due_plants
+from migrations import auto_migrate_schema
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -31,12 +40,13 @@ def background_notification_worker():
 
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):
-    # Initialize all SQLAlchemy tables (Plants, Groceries, Meals)
+    # Initialize all SQLAlchemy tables (Plants, Groceries, Meals, Maintenance)
     try:
         Base.metadata.create_all(bind=engine)
     except Exception as e:
         print(f"[!] Warning during Base metadata create_all: {e}")
 
+    auto_migrate_schema()
     init_plant_db()
     worker = threading.Thread(target=background_notification_worker, daemon=True)
     worker.start()
@@ -45,7 +55,7 @@ async def app_lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Shared Apartment Hub",
-    description="Apartment Hub with Plants, Groceries, and Meals for Tamir & Mikush",
+    description="Apartment Hub with Plants, Groceries, Meals, and Maintenance for Tamir & Mikush",
     lifespan=app_lifespan
 )
 
@@ -111,6 +121,7 @@ app.include_router(auth_router)
 app.include_router(plants_router)
 app.include_router(groceries_router)
 app.include_router(meals_router)
+app.include_router(maintenance_router)
 
 
 # ===================== ROOT & SHELL SERVING =====================
@@ -124,20 +135,37 @@ def serve_hub_shell(request: Request, default_tab: str = "plants"):
     with open(hub_file, "r", encoding="utf-8") as f:
         html = f.read()
 
-    # Pre-configure the active tab if specified
-    if default_tab and default_tab != "plants":
-        html = html.replace(
-            "switchTab(requestedTab);",
-            f"switchTab('{default_tab}');"
-        )
     return HTMLResponse(content=html)
 
 
 @app.get("/", response_class=HTMLResponse)
 def root_index(request: Request):
     """Serves the unified Apartment Hub shell."""
-    tab = request.query_params.get("tab", "plants")
-    return serve_hub_shell(request, default_tab=tab)
+    return serve_hub_shell(request, default_tab="plants")
+
+
+@app.get("/plants", response_class=HTMLResponse)
+def plants_view(request: Request):
+    """Serves the unified Apartment Hub shell focused on Plants tab."""
+    return serve_hub_shell(request, default_tab="plants")
+
+
+@app.get("/groceries", response_class=HTMLResponse)
+def groceries_view(request: Request):
+    """Serves the unified Apartment Hub shell focused on Groceries tab."""
+    return serve_hub_shell(request, default_tab="groceries")
+
+
+@app.get("/meals", response_class=HTMLResponse)
+def meals_view(request: Request):
+    """Serves the unified Apartment Hub shell focused on Meals tab."""
+    return serve_hub_shell(request, default_tab="meals")
+
+
+@app.get("/maintenance", response_class=HTMLResponse)
+def maintenance_view(request: Request):
+    """Serves the unified Apartment Hub shell focused on Maintenance tab."""
+    return serve_hub_shell(request, default_tab="maintenance")
 
 
 @app.get("/manifest.json")

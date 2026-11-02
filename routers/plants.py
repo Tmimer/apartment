@@ -448,7 +448,12 @@ def _serve_manifest_response():
 @plants_router.get("")
 @plants_router.get("/")
 def serve_plants_ui(request: Request):
-    """Serves the plant tracker view within the unified hub or direct."""
+    """Serves the unified apartment hub shell on /plants."""
+    hub_file = os.path.join(BASE_DIR, "templates", "hub.html")
+    if os.path.exists(hub_file):
+        from fastapi.responses import HTMLResponse
+        with open(hub_file, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
     html_file = os.path.join(BASE_DIR, "plants_index.html")
     if not os.path.exists(html_file):
         raise HTTPException(status_code=404, detail="plants_index.html not found")

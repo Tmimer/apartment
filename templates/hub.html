@@ -1276,6 +1276,59 @@
     </main>
   </section>
 
+  <!-- ══════════════════════════════════════════════════════
+       TAB 4: APARTMENT MAINTENANCE (🔧 TASKS)
+  ══════════════════════════════════════════════════════ -->
+  <section id="tab-maintenance" class="tab-pane">
+    <main class="app-main">
+
+      <!-- Maintenance Summary Banner -->
+      <div style="background:linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(16, 185, 129, 0.08)); border:1px solid rgba(245, 158, 11, 0.25); border-radius:var(--radius-lg); padding:16px; margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-weight:800; font-size:1.05rem; color:var(--text-main);">Apartment Care &amp; Upkeep</div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Routine checks and recurring deep cleans</div>
+          </div>
+          <button class="btn-add-plant" onclick="openCreateTaskModal()" style="font-size:0.8rem; padding:8px 14px;">
+            + New Task
+          </button>
+        </div>
+
+        <!-- Quick Stats Grid -->
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:14px;">
+          <div style="background:rgba(15, 23, 42, 0.6); padding:10px 8px; border-radius:var(--radius-md); text-align:center; border:1px solid var(--card-border);">
+            <div style="font-size:1.25rem; font-weight:800; color:var(--rose);" id="stat-tasks-overdue">0</div>
+            <div style="font-size:0.68rem; color:var(--text-dim); text-transform:uppercase; font-weight:600;">Overdue</div>
+          </div>
+          <div style="background:rgba(15, 23, 42, 0.6); padding:10px 8px; border-radius:var(--radius-md); text-align:center; border:1px solid var(--card-border);">
+            <div style="font-size:1.25rem; font-weight:800; color:var(--amber);" id="stat-tasks-due-soon">0</div>
+            <div style="font-size:0.68rem; color:var(--text-dim); text-transform:uppercase; font-weight:600;">Due Soon</div>
+          </div>
+          <div style="background:rgba(15, 23, 42, 0.6); padding:10px 8px; border-radius:var(--radius-md); text-align:center; border:1px solid var(--card-border);">
+            <div style="font-size:1.25rem; font-weight:800; color:var(--emerald);" id="stat-tasks-total">0</div>
+            <div style="font-size:0.68rem; color:var(--text-dim); text-transform:uppercase; font-weight:600;">Total Active</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Task Category Filters -->
+      <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:10px; margin-bottom:10px;" id="maintenance-category-pills">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Maintenance Tasks List -->
+      <div class="section-header" style="margin-bottom:10px;">
+        <span>🔧 Care Checklist</span>
+        <span id="maintenance-count-tag" style="font-size:0.7rem;">0 tasks</span>
+      </div>
+
+      <div id="maintenance-tasks-list" style="display:flex; flex-direction:column; gap:10px;">
+        <!-- Rendered by JS -->
+      </div>
+
+    </main>
+  </section>
+
   <!-- ── BOTTOM NAVIGATION BAR ── -->
   <nav class="bottom-nav-bar">
     <button class="nav-tab active" id="nav-btn-plants" onclick="switchTab('plants')">
@@ -1291,6 +1344,11 @@
     <button class="nav-tab" id="nav-btn-meals" onclick="switchTab('meals')">
       <span class="tab-icon">🍽️</span>
       <span class="tab-label">Meals</span>
+    </button>
+    <button class="nav-tab" id="nav-btn-maintenance" onclick="switchTab('maintenance')">
+      <span class="tab-icon">🔧</span>
+      <span class="tab-label">Tasks</span>
+      <span class="nav-badge" id="badge-maintenance" style="display:none;">0</span>
     </button>
   </nav>
 
@@ -1445,6 +1503,48 @@
     </div>
   </div>
 
+  <!-- 7. Create / Edit Maintenance Task Modal -->
+  <div class="modal-overlay" id="task-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title" id="task-modal-title">🔧 Add Maintenance Task</div>
+        <button class="btn-close-modal" onclick="closeModal('task-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-task-id" value="">
+        <div class="form-group">
+          <label>Task Title *</label>
+          <input type="text" id="task-title-input" class="form-control" placeholder="e.g. Wash Bedsheets, Clean AC Mesh Filters">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Category</label>
+            <select id="task-category-select" class="form-control">
+              <option value="General">General</option>
+              <option value="Kitchen">Kitchen</option>
+              <option value="Bathroom">Bathroom</option>
+              <option value="Bedroom">Bedroom</option>
+              <option value="Living Room">Living Room</option>
+              <option value="Balcony">Balcony</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Repeat Every (Days) *</label>
+            <input type="number" id="task-interval-input" class="form-control" value="30" min="1" max="365">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Optional Notes / Instructions</label>
+          <textarea id="task-notes-input" class="form-control" rows="2" placeholder="e.g. Wash at 60°C, clean mesh filter under running water"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('task-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitSaveMaintenanceTask()">Save Task</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 5. Assign Meal to Day Modal -->
   <div class="modal-overlay" id="assign-meal-modal">
     <div class="modal-sheet">
@@ -1467,12 +1567,24 @@
           <input type="text" id="assign-custom-title" class="form-control" placeholder="e.g. Date Night, Pizza Takeout...">
         </div>
 
-        <div style="background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3); border-radius:var(--radius-md); padding:12px; display:flex; align-items:center; justify-content:space-between;">
-          <div>
-            <div style="font-weight:700; font-size:0.85rem; color:#d8b4fe;">♻️ Leftovers / 2x Batch</div>
-            <div style="font-size:0.75rem; color:var(--text-dim);">Skip buying duplicate ingredients on grocery export</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <!-- Leftovers Toggle (0x Ingredients) -->
+          <div style="background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3); border-radius:var(--radius-md); padding:10px 12px; display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <div style="font-weight:700; font-size:0.82rem; color:#d8b4fe;">♻️ Leftovers (0x Ingredients)</div>
+              <div style="font-size:0.72rem; color:var(--text-dim);">Eating leftovers — skip buying ingredients this day</div>
+            </div>
+            <input type="checkbox" id="assign-leftovers-chk" style="width:18px; height:18px; accent-color:var(--purple); cursor:pointer;" onchange="handleLeftoversToggleInModal(this.checked)">
           </div>
-          <input type="checkbox" id="assign-leftovers-chk" style="width:20px; height:20px; accent-color:var(--purple); cursor:pointer;">
+
+          <!-- 2x Batch Toggle (Double Quantities) -->
+          <div style="background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.3); border-radius:var(--radius-md); padding:10px 12px; display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <div style="font-weight:700; font-size:0.82rem; color:var(--sky);">✖️2 Cook Double (2x Ingredients)</div>
+              <div style="font-size:0.72rem; color:var(--text-dim);">Cooking a double batch — multiply ingredients by 2</div>
+            </div>
+            <input type="checkbox" id="assign-double-batch-chk" style="width:18px; height:18px; accent-color:var(--sky); cursor:pointer;" onchange="handleDoubleBatchToggleInModal(this.checked)">
+          </div>
         </div>
 
         <div class="form-group">
@@ -1564,16 +1676,17 @@
     // ---------- ACTIVE USER PROFILE ----------
     let currentProfile = localStorage.getItem('apartment_user') || 'Tamir';
 
-    function switchActiveUser(user) {
+    function switchActiveUser(user, showNotification = true) {
       currentProfile = user;
       localStorage.setItem('apartment_user', user);
-      document.getElementById('hdr-btn-tamir').classList.toggle('active', user === 'Tamir');
-      document.getElementById('hdr-btn-mikush').classList.toggle('active', user === 'Mikush');
-      showToast(`Switched profile to ${user}`);
+      const bTamir = document.getElementById('hdr-btn-tamir');
+      const bMikush = document.getElementById('hdr-btn-mikush');
+      if (bTamir) bTamir.classList.toggle('active', user === 'Tamir');
+      if (bMikush) bMikush.classList.toggle('active', user === 'Mikush');
+      if (showNotification) {
+        showToast(`Switched profile to ${user}`);
+      }
     }
-
-    // Initialize switcher state
-    switchActiveUser(currentProfile);
 
     // Auth headers helper
     function getAuthHeaders() {
@@ -1597,7 +1710,10 @@
     let currentTab = 'plants';
 
     function switchTab(tabName) {
+      const validTabs = ['plants', 'groceries', 'meals', 'maintenance'];
+      if (!validTabs.includes(tabName)) tabName = 'plants';
       currentTab = tabName;
+
       // Update tab buttons
       document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
       const activeBtn = document.getElementById(`nav-btn-${tabName}`);
@@ -1608,10 +1724,11 @@
       const activePane = document.getElementById(`tab-${tabName}`);
       if (activePane) activePane.classList.add('active');
 
-      // Update URL without full page reload
-      const url = new URL(window.location);
-      url.searchParams.set('tab', tabName);
-      window.history.replaceState({}, '', url);
+      // Update URL via pushState to reflect clean path (/plants, /groceries, etc.)
+      const targetPath = tabName === 'plants' ? '/' : `/${tabName}`;
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ tab: tabName }, '', targetPath);
+      }
       sessionStorage.setItem('active_hub_tab', tabName);
 
       // Trigger data fetch for active tab
@@ -1621,8 +1738,19 @@
         loadGroceries();
       } else if (tabName === 'meals') {
         loadMealPlan();
+      } else if (tabName === 'maintenance') {
+        loadMaintenanceTasks();
       }
     }
+
+    // Support browser back/forward buttons
+    window.addEventListener('popstate', (e) => {
+      const path = window.location.pathname.replace(/^\//, '').toLowerCase();
+      const tabFromPath = path === '' ? 'plants' : path;
+      if (['plants', 'groceries', 'meals', 'maintenance'].includes(tabFromPath)) {
+        switchTab(tabFromPath);
+      }
+    });
 
     // ---------- TOAST UTILITY ----------
     let toastTimeout = null;
@@ -2153,7 +2281,8 @@
         const entry = weeklyPlan[day] || null;
         const isPlanned = entry && (entry.meal_title || entry.custom_title);
         const title = isPlanned ? (entry.meal_title || entry.custom_title) : "No dinner planned";
-        const isLeftovers = entry ? entry.is_leftovers : false;
+        const isLeftovers = entry ? !!entry.is_leftovers : false;
+        const isDoubleBatch = entry ? !!entry.is_double_batch : false;
         const prepTime = entry && entry.prep_time_min ? `⏱️ ${entry.prep_time_min}m` : null;
 
         return `
@@ -2166,9 +2295,17 @@
                     class="meal-leftovers-badge" 
                     style="cursor:pointer; background:${isLeftovers ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.06)'}; color:${isLeftovers ? '#d8b4fe' : 'var(--text-dim)'}; border-color:${isLeftovers ? 'rgba(168,85,247,0.5)' : 'var(--card-border)'};"
                     onclick="toggleDayLeftovers('${day}', ${!isLeftovers})"
-                    title="Toggle Leftovers / 2x Batch"
+                    title="Toggle Leftovers (0x Ingredients)"
                   >
-                    ${isLeftovers ? '♻️ Leftovers' : '+ Leftovers?'}
+                    ${isLeftovers ? '♻️ Leftovers (0x)' : '+ Leftovers'}
+                  </button>
+                  <button 
+                    class="meal-leftovers-badge" 
+                    style="cursor:pointer; background:${isDoubleBatch ? 'rgba(56,189,248,0.3)' : 'rgba(255,255,255,0.06)'}; color:${isDoubleBatch ? '#38bdf8' : 'var(--text-dim)'}; border-color:${isDoubleBatch ? 'rgba(56,189,248,0.5)' : 'var(--card-border)'};"
+                    onclick="toggleDayDoubleBatch('${day}', ${!isDoubleBatch})"
+                    title="Toggle Double Batch (2x Ingredients)"
+                  >
+                    ${isDoubleBatch ? '✖️2 Batch (2x)' : '+ 2x Batch'}
                   </button>
                 ` : ''}
               </div>
@@ -2248,12 +2385,14 @@
         if (curr.meal_id) sel.value = curr.meal_id;
         document.getElementById('assign-custom-title').value = curr.custom_title || '';
         document.getElementById('assign-leftovers-chk').checked = !!curr.is_leftovers;
+        document.getElementById('assign-double-batch-chk').checked = !!curr.is_double_batch;
         document.getElementById('assign-notes').value = curr.notes || '';
         document.getElementById('btn-clear-day-meal').style.display = 'inline-block';
       } else {
         sel.value = '';
         document.getElementById('assign-custom-title').value = '';
         document.getElementById('assign-leftovers-chk').checked = false;
+        document.getElementById('assign-double-batch-chk').checked = false;
         document.getElementById('assign-notes').value = '';
         document.getElementById('btn-clear-day-meal').style.display = 'none';
       }
@@ -2274,6 +2413,7 @@
       const mealIdVal = document.getElementById('assign-meal-select').value;
       const customTitle = document.getElementById('assign-custom-title').value.trim();
       const isLeftovers = document.getElementById('assign-leftovers-chk').checked;
+      const isDoubleBatch = document.getElementById('assign-double-batch-chk').checked;
       const notes = document.getElementById('assign-notes').value.trim();
 
       const mealId = mealIdVal ? parseInt(mealIdVal) : null;
@@ -2286,6 +2426,7 @@
         meal_id: mealId,
         custom_title: customTitle || null,
         is_leftovers: isLeftovers,
+        is_double_batch: isDoubleBatch,
         notes: notes || null
       };
 
@@ -2304,6 +2445,18 @@
       }
     }
 
+    function handleLeftoversToggleInModal(checked) {
+      if (checked) {
+        document.getElementById('assign-double-batch-chk').checked = false;
+      }
+    }
+
+    function handleDoubleBatchToggleInModal(checked) {
+      if (checked) {
+        document.getElementById('assign-leftovers-chk').checked = false;
+      }
+    }
+
     async function toggleDayLeftovers(day, newState) {
       const entry = weeklyPlan[day];
       if (!entry) return;
@@ -2316,14 +2469,41 @@
             meal_id: entry.meal_id,
             custom_title: entry.custom_title,
             is_leftovers: newState,
+            is_double_batch: newState ? false : entry.is_double_batch,
             notes: entry.notes
           })
         });
         entry.is_leftovers = newState;
+        if (newState) entry.is_double_batch = false;
         renderMealPlan();
-        showToast(`${day}: ${newState ? 'Marked as leftovers' : 'Marked fresh batch'}`);
+        showToast(`${day}: ${newState ? '♻️ Marked as Leftovers (0x)' : 'Marked standard 1x'}`);
       } catch (err) {
         console.warn("Toggle leftovers error:", err);
+      }
+    }
+
+    async function toggleDayDoubleBatch(day, newState) {
+      const entry = weeklyPlan[day];
+      if (!entry) return;
+
+      try {
+        await fetch(`/meals/api/plan/${day}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            meal_id: entry.meal_id,
+            custom_title: entry.custom_title,
+            is_leftovers: newState ? false : entry.is_leftovers,
+            is_double_batch: newState,
+            notes: entry.notes
+          })
+        });
+        entry.is_double_batch = newState;
+        if (newState) entry.is_leftovers = false;
+        renderMealPlan();
+        showToast(`${day}: ${newState ? '✖️2 Marked as Double Batch (2x)' : 'Marked standard 1x'}`);
+      } catch (err) {
+        console.warn("Toggle double batch error:", err);
       }
     }
 
@@ -3234,20 +3414,279 @@
       }
     }
 
+
+    // ══════════════════════════════════════════════════════════
+    // TAB 4: APARTMENT MAINTENANCE MODULE LOGIC
+    // ══════════════════════════════════════════════════════════
+    let maintenanceTasks = [];
+    let selectedTaskCategory = 'All';
+
+    async function loadMaintenanceTasks() {
+      try {
+        const res = await fetch('/maintenance/api/tasks', { headers: getAuthHeaders() });
+        if (!res.ok) {
+          if (res.status === 401) {
+            window.location.href = '/login';
+            return;
+          }
+          throw new Error('HTTP ' + res.status);
+        }
+        const data = await res.json();
+        maintenanceTasks = data.tasks || [];
+
+        // Update stats
+        const statOverdue = document.getElementById('stat-tasks-overdue');
+        const statDueSoon = document.getElementById('stat-tasks-due-soon');
+        const statTotal = document.getElementById('stat-tasks-total');
+        if (statOverdue) statOverdue.innerText = data.overdue_count || 0;
+        if (statDueSoon) statDueSoon.innerText = data.due_soon_count || 0;
+        if (statTotal) statTotal.innerText = data.total || 0;
+
+        // Update bottom nav badge
+        const badge = document.getElementById('badge-maintenance');
+        const urgentCount = (data.overdue_count || 0) + (data.due_soon_count || 0);
+        if (badge) {
+          if (urgentCount > 0) {
+            badge.innerText = urgentCount;
+            badge.style.display = 'inline-block';
+          } else {
+            badge.style.display = 'none';
+          }
+        }
+
+        renderMaintenanceCategories();
+        renderMaintenanceTasks();
+      } catch (err) {
+        console.error('Error loading maintenance tasks:', err);
+      }
+    }
+
+    function renderMaintenanceCategories() {
+      const pContainer = document.getElementById('maintenance-category-pills');
+      if (!pContainer) return;
+
+      const categories = ['All', ...new Set(maintenanceTasks.map(t => t.category || 'General'))];
+      pContainer.innerHTML = categories.map(cat => `
+        <button class="loc-pill ${selectedTaskCategory === cat ? 'active' : ''}" onclick="setTaskCategoryFilter('${cat}')">
+          ${cat === 'All' ? 'All Areas' : cat}
+        </button>
+      `).join('');
+    }
+
+    function setTaskCategoryFilter(cat) {
+      selectedTaskCategory = cat;
+      renderMaintenanceCategories();
+      renderMaintenanceTasks();
+    }
+
+    function renderMaintenanceTasks() {
+      const listEl = document.getElementById('maintenance-tasks-list');
+      const tagEl = document.getElementById('maintenance-count-tag');
+      if (!listEl) return;
+
+      let filtered = maintenanceTasks;
+      if (selectedTaskCategory !== 'All') {
+        filtered = filtered.filter(t => (t.category || 'General') === selectedTaskCategory);
+      }
+
+      if (tagEl) {
+        tagEl.innerText = `${filtered.length} of ${maintenanceTasks.length} task${maintenanceTasks.length === 1 ? '' : 's'}`;
+      }
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div style="text-align:center; padding:30px 10px; color:var(--text-muted); background:var(--card-bg); border-radius:var(--radius-lg); border:1px solid var(--card-border);">
+            <div style="font-size:2rem; margin-bottom:6px;">✨</div>
+            <div style="font-weight:700; color:var(--text-main);">All caught up!</div>
+            <div style="font-size:0.8rem; margin-top:2px;">Everything in this category is running smoothly.</div>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(t => {
+        const isOverdue = t.urgency === 'OVERDUE';
+        const isDueSoon = t.urgency === 'DUE_SOON';
+        
+        let urgencyBadgeClass = 'badge-good';
+        let urgencyLabel = `Due in ${t.days_remaining}d`;
+        let cardBorderColor = 'var(--card-border)';
+
+        if (isOverdue) {
+          urgencyBadgeClass = 'badge-overdue';
+          urgencyLabel = `${Math.abs(t.days_remaining)}d Overdue`;
+          cardBorderColor = 'rgba(244, 63, 94, 0.4)';
+        } else if (isDueSoon) {
+          urgencyBadgeClass = 'badge-due';
+          urgencyLabel = `Due in ${t.days_remaining}d`;
+          cardBorderColor = 'rgba(245, 158, 11, 0.4)';
+        }
+
+        const lastDoneStr = t.last_completed_at ? 
+          `Last done ${t.days_elapsed}d ago by ${t.last_completed_by || 'Tamir'}` : 
+          'Never completed yet';
+
+        return `
+          <div class="plant-card ${isOverdue ? 'overdue' : (isDueSoon ? 'due-today' : 'good')}" style="border-color:${cardBorderColor}; padding:14px;">
+            <div class="card-top">
+              <div class="plant-title-wrap">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="plant-name">${escapeHtml(t.title)}</span>
+                  <span class="location-badge" style="font-size:0.68rem;">${escapeHtml(t.category)}</span>
+                </div>
+                <div style="font-size:0.75rem; color:var(--text-dim); margin-top:2px;">
+                  Every ${t.interval_days} days · <span style="color:var(--text-muted);">${lastDoneStr}</span>
+                </div>
+              </div>
+              <span class="urgency-badge ${urgencyBadgeClass}">${urgencyLabel}</span>
+            </div>
+
+            <!-- Urgency Progress Bar -->
+            <div style="margin: 10px 0 12px 0;">
+              <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:var(--text-dim); margin-bottom:4px; font-family:var(--font-mono);">
+                <span>Interval: ${t.days_elapsed} / ${t.interval_days} days</span>
+                <span>${t.progress_pct}%</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" style="width: ${t.progress_pct}%;"></div>
+              </div>
+            </div>
+
+            ${t.notes ? `
+              <div style="font-size:0.78rem; color:var(--text-muted); background:rgba(15,23,42,0.5); padding:8px 10px; border-radius:var(--radius-sm); margin-bottom:10px; border-left:3px solid var(--card-border);">
+                ℹ️ ${escapeHtml(t.notes)}
+              </div>
+            ` : ''}
+
+            <!-- Done Action Button & Delete -->
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button 
+                class="btn-water-quick" 
+                onclick="markMaintenanceDone(${t.id})"
+                style="flex:1; padding:8px 12px; font-size:0.85rem; font-weight:700;"
+              >
+                ✅ Mark Done
+              </button>
+              <button 
+                class="btn-log-action" 
+                onclick="deleteMaintenanceTaskDirect(${t.id})"
+                title="Delete Task"
+                style="padding:8px 10px;"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function markMaintenanceDone(taskId) {
+      try {
+        const res = await fetch(`/maintenance/api/complete/${taskId}`, {
+          method: 'POST',
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error('Failed to complete task');
+        const data = await res.json();
+        showToast(`✅ ${data.message}`);
+        await loadMaintenanceTasks();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function openCreateTaskModal() {
+      document.getElementById('task-modal-title').innerText = "🔧 Add Maintenance Task";
+      document.getElementById('edit-task-id').value = "";
+      document.getElementById('task-title-input').value = "";
+      document.getElementById('task-category-select').value = "General";
+      document.getElementById('task-interval-input').value = "30";
+      document.getElementById('task-notes-input').value = "";
+      openModal('task-modal');
+    }
+
+    async function submitSaveMaintenanceTask() {
+      const title = document.getElementById('task-title-input').value.trim();
+      const category = document.getElementById('task-category-select').value;
+      const interval = parseInt(document.getElementById('task-interval-input').value) || 30;
+      const notes = document.getElementById('task-notes-input').value.trim();
+
+      if (!title) {
+        alert("Please enter a task title!");
+        return;
+      }
+
+      try {
+        const res = await fetch('/maintenance/api/tasks', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            title: title,
+            category: category,
+            interval_days: interval,
+            notes: notes || null
+          })
+        });
+        if (!res.ok) throw new Error('Failed to create task');
+        closeModal('task-modal');
+        showToast(`Added task '${title}'!`);
+        await loadMaintenanceTasks();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function deleteMaintenanceTaskDirect(taskId) {
+      if (!confirm("Are you sure you want to remove this recurring maintenance task?")) return;
+      try {
+        const res = await fetch(`/maintenance/api/tasks/${taskId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error('Failed to delete task');
+        showToast("Task removed");
+        await loadMaintenanceTasks();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
     // ---------- INITIALIZATION ----------
     document.addEventListener('DOMContentLoaded', () => {
-      // 1. Check URL or session for initial tab
-      const urlParams = new URLSearchParams(window.location.search);
-      const requestedTab = urlParams.get('tab') || sessionStorage.getItem('active_hub_tab') || 'plants';
-      switchTab(requestedTab);
+      // 1. Initialize user switcher DOM state without notification
+      switchActiveUser(currentProfile, false);
 
-      // 2. Register Service Worker
+      // 2. Determine initial tab based on path (/groceries, /meals, /maintenance) or query param
+      const path = window.location.pathname.replace(/^\//, '').toLowerCase();
+      const validTabs = ['plants', 'groceries', 'meals', 'maintenance'];
+      let initialTab = 'plants';
+
+      if (validTabs.includes(path)) {
+        initialTab = path;
+      } else {
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryTab = urlParams.get('tab');
+        if (validTabs.includes(queryTab)) {
+          initialTab = queryTab;
+        } else {
+          const sessionTab = sessionStorage.getItem('active_hub_tab');
+          if (validTabs.includes(sessionTab)) {
+            initialTab = sessionTab;
+          }
+        }
+      }
+
+      switchTab(initialTab);
+
+      // 3. Register Service Worker
       registerSW().then(() => checkNotificationStatus());
 
-      // 3. Periodic refresh (60s)
+      // 4. Periodic background sync (60s)
       setInterval(() => {
         if (currentTab === 'plants') fetchPlants();
         else if (currentTab === 'groceries') loadGroceries();
+        else if (currentTab === 'maintenance') loadMaintenanceTasks();
       }, 60000);
     });
   </script>

@@ -1,8 +1,6 @@
 // Service Worker for Shared Apartment Hub (Tamir & Mikush)
-const CACHE_NAME = 'apartment-hub-v5';
+const CACHE_NAME = 'apartment-hub-v6';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/login',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png'
@@ -16,6 +14,7 @@ self.addEventListener('install', (e) => {
 });
 
 self.addEventListener('activate', (e) => {
+  // Delete all older caches immediately
   e.waitUntil(
     caches.keys().then((keys) => Promise.all(
       keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
@@ -25,10 +24,16 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Network first for HTML navigations, fallback to cached shell
-  if (e.request.mode === 'navigate') {
+  // Never intercept or cache API requests (plants, groceries, meals, maintenance, auth)
+  if (e.request.url.includes('/api/')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+
+  // Network-first for HTML navigations (/ , /plants, /groceries, /meals, /maintenance, /login)
+  if (e.request.mode === 'navigate' || e.request.destination === 'document') {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match('/') || caches.match('/login'))
+      fetch(e.request).catch(() => caches.match('/manifest.json'))
     );
     return;
   }
@@ -41,22 +46,22 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Network first for APIs and dynamic data
-  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+  // Default network fetch
+  e.respondWith(fetch(e.request));
 });
 
 // Push notification listener
 self.addEventListener('push', (event) => {
   let data = {
-    title: "🏠 Apartment Hub",
-    body: "You have an apartment notification!",
-    url: "/"
+    title: '🌿 Shared Apartment Hub',
+    body: 'Time to check in on the apartment!',
+    url: '/'
   };
 
   if (event.data) {
     try {
-      data = Object.assign(data, event.data.json());
-    } catch (err) {
+      data = event.data.json();
+    } catch (e) {
       data.body = event.data.text();
     }
   }
@@ -65,9 +70,6 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    vibrate: [200, 100, 200],
-    tag: 'apartment-notification',
-    renotify: true,
     data: {
       url: data.url || '/'
     },
@@ -81,20 +83,19 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Click notification listener
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/';
+  const urlToOpen = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (let client of windowClients) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
           return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+        return clients.openWindow(urlToOpen);
       }
     })
   );

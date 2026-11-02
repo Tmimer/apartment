@@ -36,6 +36,7 @@ class MealPlanUpdatePayload(BaseModel):
     meal_id: Optional[int] = None
     custom_title: Optional[str] = None
     is_leftovers: bool = False
+    is_double_batch: bool = False
     notes: Optional[str] = None
 
 
@@ -248,6 +249,7 @@ def get_weekly_plan(db: Session = Depends(get_db)):
                 "meal_title": p.meal.title if p.meal else p.custom_title,
                 "custom_title": p.custom_title,
                 "is_leftovers": p.is_leftovers,
+                "is_double_batch": getattr(p, "is_double_batch", False),
                 "notes": p.notes,
                 "prep_time_min": p.meal.prep_time_min if p.meal else None,
                 "ingredients_count": len(p.meal.ingredients) if p.meal else 0
@@ -275,6 +277,7 @@ def set_day_meal(day_of_week: str, payload: MealPlanUpdatePayload, db: Session =
             meal_id=payload.meal_id,
             custom_title=payload.custom_title.strip() if payload.custom_title else None,
             is_leftovers=payload.is_leftovers,
+            is_double_batch=payload.is_double_batch,
             notes=payload.notes.strip() if payload.notes else None,
             updated_at=now
         )
@@ -283,6 +286,7 @@ def set_day_meal(day_of_week: str, payload: MealPlanUpdatePayload, db: Session =
         plan_entry.meal_id = payload.meal_id
         plan_entry.custom_title = payload.custom_title.strip() if payload.custom_title else None
         plan_entry.is_leftovers = payload.is_leftovers
+        plan_entry.is_double_batch = payload.is_double_batch
         plan_entry.notes = payload.notes.strip() if payload.notes else None
         plan_entry.updated_at = now
 
@@ -295,7 +299,8 @@ def set_day_meal(day_of_week: str, payload: MealPlanUpdatePayload, db: Session =
         "entry": {
             "day": plan_entry.day_of_week,
             "meal_id": plan_entry.meal_id,
-            "is_leftovers": plan_entry.is_leftovers
+            "is_leftovers": plan_entry.is_leftovers,
+            "is_double_batch": getattr(plan_entry, "is_double_batch", False)
         }
     }
 
@@ -350,6 +355,9 @@ def export_week_ingredients_to_groceries(request: Request, db: Session = Depends
         if plan.is_leftovers:
             continue
 
+        # 2x batch multiplier: doubles ingredient quantities when cooking a double batch
+        multiplier = 2.0 if getattr(plan, "is_double_batch", False) else 1.0
+
         for ing in plan.meal.ingredients:
             raw_name = (ing.ingredient_name or "").strip()
             if not raw_name:
@@ -359,20 +367,22 @@ def export_week_ingredients_to_groceries(request: Request, db: Session = Depends
             raw_unit = (ing.unit or "").strip()
             norm_unit = raw_unit.lower()
 
+            item_amount = (float(ing.amount) * multiplier) if ing.amount is not None else None
+
             key = (norm_name, norm_unit)
 
             if key not in aggregated:
                 aggregated[key] = {
                     "name": raw_name.capitalize(),
-                    "amount": float(ing.amount) if ing.amount is not None else None,
+                    "amount": item_amount,
                     "unit": raw_unit if raw_unit else None,
                     "category": ing.category or "Produce"
                 }
             else:
                 # Sum amounts where unit matches
-                if ing.amount is not None:
+                if item_amount is not None:
                     curr_amt = aggregated[key]["amount"] or 0.0
-                    aggregated[key]["amount"] = round(curr_amt + float(ing.amount), 2)
+                    aggregated[key]["amount"] = round(curr_amt + item_amount, 2)
 
     if not aggregated:
         raise HTTPException(

@@ -44,6 +44,7 @@ class MealPlan(Base):
     meal_id = Column(Integer, ForeignKey("meals.id", ondelete="SET NULL"), nullable=True)
     custom_title = Column(String(255), nullable=True)
     is_leftovers = Column(Boolean, nullable=False, default=False)
+    is_double_batch = Column(Boolean, nullable=False, default=False)
     notes = Column(Text, nullable=True)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
