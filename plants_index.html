@@ -1210,10 +1210,12 @@
           <!-- Populated by JS -->
         </div>
 
+        <div id="notify-inline-feedback" style="display:none; margin-bottom:12px;"></div>
+
         <div style="font-size:0.8rem; color:var(--text-muted); line-height:1.55; display:flex; flex-direction:column; gap:8px;">
           <div><strong>📱 How it works:</strong> You will receive an automatic push alert on your phone whenever any of your plants are due or overdue for watering.</div>
           <div><strong>🍎 iPhone (iOS 16.4+):</strong> Make sure the app is opened from your <em>Home Screen icon</em> (Safari requires PWAs to be installed on the Home Screen to deliver notifications).</div>
-          <div><strong>🤖 Android:</strong> Works in both Chrome and the installed Home Screen app.</div>
+          <div><strong>🤖 Android (Firefox & Chrome):</strong> Works in both the browser and the installed Home Screen app.</div>
           <div><strong>⚡ 24/7 Keep-Alive:</strong> The server stays awake automatically around the clock so alerts arrive without delay and cold-starts are prevented.</div>
         </div>
       </div>
@@ -1720,15 +1722,57 @@
       return outputArray;
     }
 
+    function setNotifyFeedback(msg, type = 'info') {
+      const box = document.getElementById('notify-inline-feedback');
+      if (!box) return;
+      if (!msg) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+      }
+      const isErr = type === 'error';
+      const isOk = type === 'success';
+      const bg = isErr ? 'rgba(244,63,94,0.18)' : (isOk ? 'rgba(16,185,129,0.18)' : 'rgba(56,189,248,0.15)');
+      const color = isErr ? '#fda4af' : (isOk ? '#a7f3d0' : '#bae6fd');
+      const border = isErr ? 'rgba(244,63,94,0.45)' : (isOk ? 'rgba(16,185,129,0.45)' : 'rgba(56,189,248,0.35)');
+      box.innerHTML = `<div style="background:${bg}; color:${color}; border:1px solid ${border}; padding:10px 14px; border-radius:var(--radius-sm); font-size:0.82rem; line-height:1.45;">${msg}</div>`;
+      box.style.display = 'block';
+    }
+
+    async function registerSW() {
+      if (!('serviceWorker' in navigator)) return null;
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        return reg;
+      } catch (err) {
+        console.warn("Root /sw.js registration fallback:", err);
+        try {
+          const reg2 = await navigator.serviceWorker.register('/plants/sw.js', { scope: '/' });
+          return reg2;
+        } catch (err2) {
+          console.error("SW registration error:", err2);
+          return null;
+        }
+      }
+    }
+
     async function getSWRegistration() {
       if (!('serviceWorker' in navigator)) return null;
       try {
-        const reg = await Promise.race([
-          navigator.serviceWorker.ready,
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
-        ]);
-        return reg;
+        let reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) {
+          reg = await registerSW();
+        }
+        if (navigator.serviceWorker.ready) {
+          const readyReg = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('ready_timeout')), 4000))
+          ]).catch(() => null);
+          if (readyReg) return readyReg;
+        }
+        return reg || (await navigator.serviceWorker.getRegistration());
       } catch (e) {
+        console.warn("getSWRegistration fallback:", e);
         return await navigator.serviceWorker.getRegistration();
       }
     }
@@ -1774,6 +1818,7 @@
     }
 
     function openNotifyModal() {
+      setNotifyFeedback(null);
       openModal('notify-modal');
       renderNotifyModalBody();
       checkNotificationStatus().then(() => renderNotifyModalBody());
@@ -1785,7 +1830,6 @@
 
       const hasNotification = ('Notification' in window);
       const perm = hasNotification ? Notification.permission : 'unsupported';
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://');
 
       if (isSubscribedToPush) {
         box.innerHTML = `
@@ -1810,17 +1854,17 @@
       } else if (perm === 'denied') {
         box.innerHTML = `
           <div style="background:rgba(244,63,94,0.16); border:1px solid rgba(244,63,94,0.4); border-radius:var(--radius-sm); padding:10px; margin-bottom:10px;">
-            <div style="font-weight:700; color:#fecdd3; font-size:0.85rem; margin-bottom:4px;">⚠️ Permission is Blocked in Phone Settings</div>
+            <div style="font-weight:700; color:#fecdd3; font-size:0.85rem; margin-bottom:4px;">⚠️ Permission Blocked in Browser Settings</div>
             <div style="font-size:0.76rem; color:#fda4af; line-height:1.4;">
-              Your phone previously set notifications to "Block" for this app, so the system pop-up was hidden. You can enable it in your phone settings:
+              Firefox or your device has notifications currently set to "Blocked" for this website:
             </div>
             <div style="font-size:0.75rem; color:#f8fafc; margin-top:8px; line-height:1.5;">
-              • <strong>iPhone:</strong> Settings ➔ Notifications ➔ <em>Tmimer's Plants</em> (or Safari) ➔ Allow Notifications<br>
-              • <strong>Android:</strong> Settings ➔ Apps ➔ <em>Tmimer's Plants</em> ➔ Notifications ➔ Allow
+              • <strong>Firefox Android:</strong> Tap the lock or shield icon in the address bar ➔ Site Permissions ➔ Notifications ➔ <strong>Allowed</strong>.<br>
+              • <strong>Android Settings:</strong> Settings ➔ Apps ➔ Firefox (or Tmimer's Plants) ➔ Notifications ➔ <strong>Allow</strong>.
             </div>
           </div>
           <button class="btn-secondary" style="padding:9px 18px; font-size:0.85rem; width:100%; display:flex; justify-content:center; gap:6px;" onclick="enablePushNotifications()">
-            🔄 Check Again
+            🔄 Check Again & Turn On
           </button>
         `;
       } else if (!hasNotification) {
@@ -1852,29 +1896,35 @@
     }
 
     async function enablePushNotifications() {
+      setNotifyFeedback("Starting notification setup...", "info");
+
       if (!('Notification' in window)) {
-        alert("Notifications are not supported in this browser window. If you're on iPhone, please open the app from your Home Screen icon (iOS 16.4+).");
+        setNotifyFeedback("Notifications are not supported in this browser window. If you're on iPhone, please open the app from your Home Screen icon (iOS 16.4+).", "error");
         return;
       }
 
       try {
+        setNotifyFeedback("Checking notification permissions...", "info");
         const perm = await requestNotificationPermission();
         if (perm !== 'granted') {
           renderNotifyModalBody();
-          alert("Notification permission was not granted (status: " + perm + "). If blocked, you can allow notifications in your phone Settings.");
+          setNotifyFeedback("Notification permission was not granted (status: " + perm + "). Please allow notifications in Firefox site permissions or phone Settings.", "error");
           return;
         }
 
+        setNotifyFeedback("Connecting to background service worker...", "info");
         const reg = await getSWRegistration();
         if (!reg || !reg.pushManager) {
-          alert("Push manager is not available. Please make sure the app is opened from your Home Screen on iOS.");
+          setNotifyFeedback("Push manager is not available. If you are in Firefox Private Browsing, push notifications are restricted by Firefox. Please open the app in a normal tab.", "error");
           return;
         }
 
+        setNotifyFeedback("Retrieving encryption credentials...", "info");
         const keyRes = await fetch('/plants/api/notifications/vapid-public-key');
-        if (!keyRes.ok) throw new Error("Could not retrieve VAPID key");
+        if (!keyRes.ok) throw new Error("Could not retrieve VAPID key from server");
         const { public_key } = await keyRes.json();
 
+        setNotifyFeedback("Subscribing phone with push network...", "info");
         let sub = await reg.pushManager.getSubscription();
         if (!sub) {
           sub = await reg.pushManager.subscribe({
@@ -1883,6 +1933,7 @@
           });
         }
 
+        setNotifyFeedback("Registering phone with your plant tracker...", "info");
         const subJson = sub.toJSON();
         const payload = {
           endpoint: subJson.endpoint,
@@ -1904,17 +1955,24 @@
         isSubscribedToPush = true;
         updateNotificationButtonUI();
         renderNotifyModalBody();
+        setNotifyFeedback("🎉 Reminders activated! Dispatching test alert to your phone...", "success");
 
         // Send a quick welcome test push
-        await fetch('/plants/api/notifications/test', { method: 'POST' });
-        alert("🎉 Notifications enabled! A test alert was just dispatched to your phone.");
+        try {
+          await fetch('/plants/api/notifications/test', { method: 'POST' });
+          setNotifyFeedback("🎉 Notifications enabled! A test alert was just dispatched to your phone's notification bar.", "success");
+        } catch (e) {
+          setNotifyFeedback("🎉 Notifications enabled! Your phone is now registered for watering alerts.", "success");
+        }
       } catch (err) {
-        alert("Notification setup note: " + err.message);
+        console.error("Notification setup error:", err);
+        setNotifyFeedback("Notification setup note: " + err.message, "error");
       }
     }
 
     async function unsubscribeFromPush() {
       try {
+        setNotifyFeedback("Unsubscribing device...", "info");
         const reg = await getSWRegistration();
         if (reg && reg.pushManager) {
           const sub = await reg.pushManager.getSubscription();
@@ -1931,19 +1989,21 @@
         isSubscribedToPush = false;
         updateNotificationButtonUI();
         renderNotifyModalBody();
+        setNotifyFeedback("Reminders turned off for this phone.", "info");
       } catch (err) {
-        alert("Error disabling notifications: " + err.message);
+        setNotifyFeedback("Error disabling notifications: " + err.message, "error");
       }
     }
 
     async function sendTestPushAlert() {
       try {
+        setNotifyFeedback("Dispatching test alert to your phone...", "info");
         const res = await fetch('/plants/api/notifications/test', { method: 'POST' });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Failed to send test push");
-        alert("🚀 Test alert dispatched! Check your phone's notification bar.");
+        setNotifyFeedback("🚀 Test alert dispatched! Check your phone's notification bar.", "success");
       } catch (err) {
-        alert(err.message);
+        setNotifyFeedback("Test alert error: " + err.message, "error");
       }
     }
 
@@ -1966,16 +2026,19 @@
         }
         deferredPrompt = null;
       } else {
-        alert("📲 To install as a dedicated app on your phone:\n\n• iPhone (Safari): Tap the Share button at bottom, then scroll down and tap 'Add to Home Screen'.\n\n• Android (Chrome): Tap the 3 dots (⋮) in the top-right corner, then tap 'Install app' or 'Add to Home screen'.\n\nOnce added, it will launch like a real app with its own full-screen window and home screen icon!");
+        setNotifyFeedback("📲 To install as a dedicated app:\n\n• Android (Firefox): Tap the 3 dots (⋮), then tap 'Install'.\n• Android (Chrome): Tap the 3 dots (⋮) ➔ 'Install app' or 'Add to Home screen'.\n• iPhone (Safari): Tap Share ➔ 'Add to Home Screen'.", "info");
       }
     }
 
+    // Register Service Worker immediately
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/plants/sw.js')
-          .then(() => checkNotificationStatus())
-          .catch(err => console.log('SW reg error:', err));
-      });
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        registerSW().then(() => checkNotificationStatus());
+      } else {
+        window.addEventListener('DOMContentLoaded', () => {
+          registerSW().then(() => checkNotificationStatus());
+        });
+      }
     }
 
     // Auto-refresh every 60 seconds

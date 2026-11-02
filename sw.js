@@ -1,5 +1,5 @@
 // Service Worker for Tmimer's Plants PWA
-const CACHE_NAME = 'plant-tracker-v3';
+const CACHE_NAME = 'plant-tracker-v4';
 const ASSETS_TO_CACHE = [
   '/plants',
   '/plants/manifest.json',

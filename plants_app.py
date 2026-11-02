@@ -548,14 +548,33 @@ def serve_plants_ui():
     return FileResponse(html_file)
 
 
+def _serve_sw_response():
+    response = FileResponse(
+        os.path.join(BASE_DIR, "sw.js"),
+        media_type="application/javascript"
+    )
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
+def _serve_manifest_response():
+    response = FileResponse(
+        os.path.join(BASE_DIR, "manifest.json"),
+        media_type="application/manifest+json"
+    )
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 @plants_router.get("/manifest.json")
 def serve_manifest():
-    return FileResponse(os.path.join(BASE_DIR, "manifest.json"), media_type="application/manifest+json")
+    return _serve_manifest_response()
 
 
 @plants_router.get("/sw.js")
 def serve_sw():
-    return FileResponse(os.path.join(BASE_DIR, "sw.js"), media_type="application/javascript")
+    return _serve_sw_response()
 
 
 @plants_router.get("/icon-192.png")
@@ -891,6 +910,26 @@ def healthcheck():
 @app.get("/")
 def redirect_to_plants():
     return FileResponse(os.path.join(BASE_DIR, "plants_index.html"))
+
+
+@app.get("/sw.js")
+def serve_sw_root():
+    return _serve_sw_response()
+
+
+@app.get("/manifest.json")
+def serve_manifest_root():
+    return _serve_manifest_response()
+
+
+@app.get("/icon-192.png")
+def serve_icon_192_root():
+    return FileResponse(os.path.join(BASE_DIR, "icon-192.png"), media_type="image/png")
+
+
+@app.get("/icon-512.png")
+def serve_icon_512_root():
+    return FileResponse(os.path.join(BASE_DIR, "icon-512.png"), media_type="image/png")
 
 
 if __name__ == "__main__":
