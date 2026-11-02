@@ -1720,13 +1720,37 @@
       return outputArray;
     }
 
+    async function getSWRegistration() {
+      if (!('serviceWorker' in navigator)) return null;
+      try {
+        const reg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500))
+        ]);
+        return reg;
+      } catch (e) {
+        return await navigator.serviceWorker.getRegistration();
+      }
+    }
+
+    async function requestNotificationPermission() {
+      if (!('Notification' in window)) return 'unsupported';
+      try {
+        const res = Notification.requestPermission();
+        if (res && typeof res.then === 'function') {
+          return await res;
+        }
+      } catch (e) {}
+      return new Promise((resolve) => Notification.requestPermission(resolve));
+    }
+
     async function checkNotificationStatus() {
       if (!('serviceWorker' in navigator) || !('Notification' in window)) {
         return;
       }
       try {
-        const reg = await navigator.serviceWorker.ready;
-        if (!reg.pushManager) return;
+        const reg = await getSWRegistration();
+        if (!reg || !reg.pushManager) return;
         const sub = await reg.pushManager.getSubscription();
         isSubscribedToPush = !!sub && Notification.permission === 'granted';
         updateNotificationButtonUI();
@@ -1749,15 +1773,19 @@
       }
     }
 
-    async function openNotifyModal() {
-      await checkNotificationStatus();
-      renderNotifyModalBody();
+    function openNotifyModal() {
       openModal('notify-modal');
+      renderNotifyModalBody();
+      checkNotificationStatus().then(() => renderNotifyModalBody());
     }
 
     function renderNotifyModalBody() {
       const box = document.getElementById('notify-status-box');
       if (!box) return;
+
+      const hasNotification = ('Notification' in window);
+      const perm = hasNotification ? Notification.permission : 'unsupported';
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || document.referrer.includes('android-app://');
 
       if (isSubscribedToPush) {
         box.innerHTML = `
@@ -1768,15 +1796,41 @@
             <span style="font-size:0.75rem; background:rgba(16,185,129,0.2); color:#a7f3d0; padding:2px 8px; border-radius:12px;">ON</span>
           </div>
           <p style="font-size:0.8rem; color:var(--text-muted); margin:8px 0 14px 0; line-height:1.4;">
-            This device is registered! You will receive notification alerts on your phone whenever any plant is due or overdue for watering.
+            This phone is registered! You will receive notification alerts whenever any plant is due or overdue for watering.
           </p>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn-primary" style="padding:7px 14px; font-size:0.8rem;" onclick="sendTestPushAlert()">
+            <button class="btn-primary" style="padding:8px 14px; font-size:0.82rem;" onclick="sendTestPushAlert()">
               🚀 Test Phone Alert
             </button>
-            <button class="btn-secondary" style="padding:7px 14px; font-size:0.8rem;" onclick="unsubscribeFromPush()">
+            <button class="btn-secondary" style="padding:8px 14px; font-size:0.82rem;" onclick="unsubscribeFromPush()">
               🔕 Turn Off
             </button>
+          </div>
+        `;
+      } else if (perm === 'denied') {
+        box.innerHTML = `
+          <div style="background:rgba(244,63,94,0.16); border:1px solid rgba(244,63,94,0.4); border-radius:var(--radius-sm); padding:10px; margin-bottom:10px;">
+            <div style="font-weight:700; color:#fecdd3; font-size:0.85rem; margin-bottom:4px;">⚠️ Permission is Blocked in Phone Settings</div>
+            <div style="font-size:0.76rem; color:#fda4af; line-height:1.4;">
+              Your phone previously set notifications to "Block" for this app, so the system pop-up was hidden. You can enable it in your phone settings:
+            </div>
+            <div style="font-size:0.75rem; color:#f8fafc; margin-top:8px; line-height:1.5;">
+              • <strong>iPhone:</strong> Settings ➔ Notifications ➔ <em>Tmimer's Plants</em> (or Safari) ➔ Allow Notifications<br>
+              • <strong>Android:</strong> Settings ➔ Apps ➔ <em>Tmimer's Plants</em> ➔ Notifications ➔ Allow
+            </div>
+          </div>
+          <button class="btn-secondary" style="padding:9px 18px; font-size:0.85rem; width:100%; display:flex; justify-content:center; gap:6px;" onclick="enablePushNotifications()">
+            🔄 Check Again
+          </button>
+        `;
+      } else if (!hasNotification) {
+        box.innerHTML = `
+          <div style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4); border-radius:var(--radius-sm); padding:10px; margin-bottom:10px;">
+            <div style="font-weight:700; color:#fde68a; font-size:0.85rem; margin-bottom:4px;">📱 Home Screen App Required</div>
+            <div style="font-size:0.76rem; color:#fef3c7; line-height:1.4;">
+              Apple iOS requires web apps to be launched from your <strong>Home Screen icon</strong> to enable push notifications.<br>
+              If you are in Safari right now, tap <strong>Share</strong> ➔ <strong>Add to Home Screen</strong>, then open the app from your home screen.
+            </div>
           </div>
         `;
       } else {
@@ -1788,9 +1842,9 @@
             <span style="font-size:0.75rem; background:rgba(148,163,184,0.2); color:var(--text-muted); padding:2px 8px; border-radius:12px;">OFF</span>
           </div>
           <p style="font-size:0.8rem; color:var(--text-muted); margin:8px 0 14px 0; line-height:1.4;">
-            Enable notifications to get automatic alerts on your phone when plants need water, so you never let them dry out.
+            Get phone alerts whenever plants need water so you never forget to water on time.
           </p>
-          <button class="btn-primary" style="padding:10px 18px; font-size:0.85rem; width:100%; display:flex; justify-content:center; gap:6px;" onclick="enablePushNotifications()">
+          <button class="btn-primary" style="padding:11px 18px; font-size:0.9rem; width:100%; display:flex; justify-content:center; align-items:center; gap:8px;" onclick="enablePushNotifications()">
             🔔 Turn On Phone Reminders
           </button>
         `;
@@ -1799,20 +1853,21 @@
 
     async function enablePushNotifications() {
       if (!('Notification' in window)) {
-        alert("Notifications are not supported in this browser. On iPhone, make sure to add the app to your Home Screen and open it from there!");
+        alert("Notifications are not supported in this browser window. If you're on iPhone, please open the app from your Home Screen icon (iOS 16.4+).");
         return;
       }
 
       try {
-        const perm = await Notification.requestPermission();
+        const perm = await requestNotificationPermission();
         if (perm !== 'granted') {
-          alert("Notification permission was denied. Please allow notifications for this app in your browser/phone settings.");
+          renderNotifyModalBody();
+          alert("Notification permission was not granted (status: " + perm + "). If blocked, you can allow notifications in your phone Settings.");
           return;
         }
 
-        const reg = await navigator.serviceWorker.ready;
-        if (!reg.pushManager) {
-          alert("Push notifications not supported on this browser engine. Make sure to open the PWA from your Home Screen on iOS.");
+        const reg = await getSWRegistration();
+        if (!reg || !reg.pushManager) {
+          alert("Push manager is not available. Please make sure the app is opened from your Home Screen on iOS.");
           return;
         }
 
@@ -1852,23 +1907,26 @@
 
         // Send a quick welcome test push
         await fetch('/plants/api/notifications/test', { method: 'POST' });
+        alert("🎉 Notifications enabled! A test alert was just dispatched to your phone.");
       } catch (err) {
-        alert("Error enabling notifications: " + err.message);
+        alert("Notification setup note: " + err.message);
       }
     }
 
     async function unsubscribeFromPush() {
       try {
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
-        if (sub) {
-          const endpoint = sub.endpoint;
-          await sub.unsubscribe();
-          await fetch('/plants/api/notifications/unsubscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ endpoint: endpoint })
-          });
+        const reg = await getSWRegistration();
+        if (reg && reg.pushManager) {
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            const endpoint = sub.endpoint;
+            await sub.unsubscribe();
+            await fetch('/plants/api/notifications/unsubscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ endpoint: endpoint })
+            });
+          }
         }
         isSubscribedToPush = false;
         updateNotificationButtonUI();
