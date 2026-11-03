@@ -1,5 +1,5 @@
 // Service Worker for Shared Apartment Hub (Tamir & Mikush)
-const CACHE_NAME = 'apartment-hub-v7';
+const CACHE_NAME = 'apartment-hub-v8';
 const ASSETS_TO_CACHE = [
   '/manifest.json',
   '/icon.svg',
@@ -25,13 +25,13 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Never intercept or cache API requests (plants, groceries, meals, maintenance, status-note, auth)
+  // Never intercept or cache API requests (plants, groceries, meals, maintenance, dates, status-note, auth)
   if (e.request.url.includes('/api/')) {
     e.respondWith(fetch(e.request));
     return;
   }
 
-  // Network-first for HTML navigations (/ , /plants, /groceries, /meals, /maintenance, /login)
+  // Network-first for HTML navigations (/ , /plants, /groceries, /meals, /maintenance, /tasks, /dates, /shop, /login)
   if (e.request.mode === 'navigate' || e.request.destination === 'document') {
     e.respondWith(
       fetch(e.request).catch(() => caches.match('/manifest.json'))

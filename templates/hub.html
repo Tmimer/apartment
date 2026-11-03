@@ -285,6 +285,7 @@
       width: 100%;
       max-width: 680px;
       padding: 12px 14px;
+      padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
       display: flex;
       flex-direction: column;
       gap: 14px;
@@ -302,7 +303,8 @@
       width: 100%;
       max-width: 100vw;
       box-sizing: border-box;
-      height: 64px;
+      height: auto !important;
+      min-height: 56px;
       background: var(--nav-bg);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
@@ -311,12 +313,13 @@
       justify-content: space-around;
       align-items: center;
       z-index: 100;
-      padding-bottom: env(safe-area-inset-bottom, 0);
+      padding-top: 8px;
+      padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
     }
 
     .nav-tab {
-      flex: 1;
-      height: 100%;
+      flex: 1 1 0%;
+      min-width: 0;
       background: transparent;
       border: none;
       color: var(--text-dim);
@@ -324,21 +327,31 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 3px;
+      gap: 2px;
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
+      padding: 2px 0;
+      font-size: 11px;
+      line-height: 1.2;
+      text-align: center;
     }
 
     .nav-tab .tab-icon {
-      font-size: 1.25rem;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      line-height: 20px;
+      text-align: center;
       transition: transform 0.2s;
     }
 
     .nav-tab .tab-label {
-      font-size: 0.72rem;
+      font-size: 11px;
+      line-height: 1.2;
       font-weight: 600;
       letter-spacing: 0.01em;
+      white-space: nowrap;
     }
 
     .nav-tab.active {
@@ -346,19 +359,48 @@
     }
 
     .nav-tab.active .tab-icon {
-      transform: scale(1.15) translateY(-2px);
+      transform: scale(1.12);
     }
 
     .nav-tab.active::after {
       content: '';
       position: absolute;
       top: 0;
-      left: 30%;
-      right: 30%;
+      left: 20%;
+      right: 20%;
       height: 3px;
       background: var(--accent);
       border-radius: 0 0 3px 3px;
       box-shadow: 0 1px 8px var(--accent-glow);
+    }
+
+    /* 3D Coin Flip Styles */
+    .decider-coin {
+      transform-style: preserve-3d;
+      transition: transform 2.2s cubic-bezier(0.2, 0.8, 0.3, 1.0);
+    }
+    .coin-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+    .coin-face-tamir {
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      border: 3px solid #10b981;
+      box-shadow: 0 6px 18px rgba(16,185,129,0.35);
+    }
+    .coin-face-mikush {
+      background: linear-gradient(135deg, #2a1120, #3b1730);
+      border: 3px solid #ec4899;
+      box-shadow: 0 6px 18px rgba(236,72,153,0.35);
+      transform: rotateY(180deg);
     }
 
     .nav-badge {
@@ -1336,9 +1378,6 @@
         <span id="notify-label" style="display:none;">Alerts</span>
       </button>
       <button id="btn-install-pwa" class="btn-install-app" onclick="triggerPWAInstall()">📲</button>
-      <button class="btn-logout-subtle" onclick="handleLogout()" title="Lock / Logout" aria-label="Logout">
-        <span>🔒</span>
-      </button>
     </div>
   </header>
 
@@ -1489,6 +1528,26 @@
   <section id="tab-meals" class="tab-pane">
     <main class="container">
 
+      <!-- ── FRIDGE & LEFTOVERS TRACKER ── -->
+      <div style="background:linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(59, 130, 246, 0.08)); border:1px solid rgba(6, 182, 212, 0.28); border-radius:var(--radius-lg); padding:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.35rem;">🧊</span>
+            <div>
+              <div style="font-weight:800; font-size:1.05rem; color:var(--text-main);">In the Fridge (Leftovers)</div>
+              <div style="font-size:0.74rem; color:var(--text-muted); margin-top:2px;">Track cooked meals before they spoil</div>
+            </div>
+          </div>
+          <button class="btn-secondary" onclick="openAddFridgeModal()" style="font-size:0.76rem; padding:6px 12px; border-color:rgba(6, 182, 212, 0.4);">
+            + Add Leftover
+          </button>
+        </div>
+
+        <div id="fridge-items-container" style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">
+          <!-- Loaded via JS -->
+        </div>
+      </div>
+
       <!-- Week Header & One-Tap Export -->
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
         <div>
@@ -1574,6 +1633,169 @@
         <!-- Rendered by JS -->
       </div>
 
+      <!-- Subtle Secondary Logout at Bottom of Tasks Tab -->
+      <div style="text-align:center; margin:32px auto 16px auto;">
+        <button class="btn-subtle-logout" onclick="confirmLogout()" style="background:transparent; border:1px solid var(--card-border); color:var(--text-muted); font-size:0.78rem; padding:8px 18px; border-radius:var(--radius-full); cursor:pointer; opacity:0.75; transition:all 0.2s ease;">
+          🔒 Log Out of Apartment Hub
+        </button>
+      </div>
+
+    </main>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════
+       TAB 5: THE DATE & DECIDER VAULT (/dates)
+  ══════════════════════════════════════════════════════ -->
+  <section id="tab-dates" class="tab-pane">
+    <main class="container">
+
+      <!-- Header & Subtitle -->
+      <div style="background:linear-gradient(135deg, rgba(236, 72, 153, 0.12), rgba(168, 85, 247, 0.08)); border:1px solid rgba(236, 72, 153, 0.28); border-radius:var(--radius-lg); padding:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:1.35rem;">✨</span>
+              <span style="font-weight:800; font-size:1.15rem; color:var(--text-main); letter-spacing:-0.02em;">The Date &amp; Decider Vault</span>
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
+              Wishlists, mutual favorites &amp; instant date night tie-breakers
+            </div>
+          </div>
+          <button class="btn-add-plant" onclick="openAddDateSpotModal()" style="font-size:0.78rem; padding:8px 14px; background:linear-gradient(135deg, #ec4899, #f43f5e);">
+            + Add Spot
+          </button>
+        </div>
+
+        <!-- 3 Sub-Tabs Switcher -->
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:14px; background:rgba(0,0,0,0.25); padding:4px; border-radius:var(--radius-pill); border:1px solid var(--card-border);">
+          <button id="dates-subnav-vault" class="loc-pill active" onclick="switchDatesSubtab('vault')" style="width:100%; text-align:center; padding:7px 4px; font-size:0.76rem;">
+            📖 The Vault
+          </button>
+          <button id="dates-subnav-spinner" class="loc-pill" onclick="switchDatesSubtab('spinner')" style="width:100%; text-align:center; padding:7px 4px; font-size:0.76rem;">
+            🎲 Date Spinner
+          </button>
+          <button id="dates-subnav-decider" class="loc-pill" onclick="switchDatesSubtab('decider')" style="width:100%; text-align:center; padding:7px 4px; font-size:0.76rem;">
+            🪙 Coin &amp; Wheels
+          </button>
+        </div>
+      </div>
+
+      <!-- SUBTAB 1: THE VAULT -->
+      <div id="dates-view-vault" style="display:flex; flex-direction:column; gap:12px;">
+        <!-- Filters (Status & Category) -->
+        <div style="display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+          <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:2px;" id="dates-status-filters">
+            <button class="loc-pill active" id="btn-filter-status-all" onclick="setDateStatusFilter('all')">All (<span id="dates-count-all">0</span>)</button>
+            <button class="loc-pill" id="btn-filter-status-wishlist" onclick="setDateStatusFilter('wishlist')">✨ Wishlist (<span id="dates-count-wishlist">0</span>)</button>
+            <button class="loc-pill" id="btn-filter-status-visited" onclick="setDateStatusFilter('visited')">❤️ Visited (<span id="dates-count-visited">0</span>)</button>
+          </div>
+          <select id="dates-category-select" class="form-control" onchange="setDateCategoryFilter(this.value)" style="width:auto; font-size:0.78rem; padding:6px 10px;">
+            <option value="all">All Categories</option>
+            <option value="Food & Drinks">Food &amp; Drinks</option>
+            <option value="Coffee & Dessert">Coffee &amp; Dessert</option>
+            <option value="Activity">Activity</option>
+            <option value="Outdoors / Trip">Outdoors / Trip</option>
+            <option value="At Home / Cozy">At Home / Cozy</option>
+          </select>
+        </div>
+
+        <!-- Spots List -->
+        <div id="date-spots-list" style="display:flex; flex-direction:column; gap:10px;">
+          <!-- Loaded via JS -->
+        </div>
+      </div>
+
+      <!-- SUBTAB 2: DATE NIGHT SPINNER -->
+      <div id="dates-view-spinner" style="display:none; flex-direction:column; gap:14px;">
+        <div style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius-lg); padding:20px; text-align:center; box-shadow:var(--card-shadow);">
+          <div style="font-size:0.85rem; color:var(--text-dim); text-transform:uppercase; font-weight:700; letter-spacing:0.05em; margin-bottom:12px;">
+            What should we do tonight?
+          </div>
+
+          <!-- Mode Selector -->
+          <div style="display:flex; justify-content:center; gap:8px; margin-bottom:16px;">
+            <button id="spin-mode-new" class="loc-pill active" onclick="setSpinMode('new')">
+              ✨ Explore Wishlist
+            </button>
+            <button id="spin-mode-fav" class="loc-pill" onclick="setSpinMode('favorite')">
+              ❤️ Our Favorites (2x Loves)
+            </button>
+          </div>
+
+          <!-- Animated Spinner Box -->
+          <div id="spinner-display-box" style="min-height:120px; display:flex; flex-direction:column; justify-content:center; align-items:center; background:rgba(0,0,0,0.3); border:2px dashed var(--card-border); border-radius:var(--radius-md); padding:16px; margin-bottom:16px; transition:all 0.3s ease;">
+            <div id="spinner-slot-text" style="font-size:1.35rem; font-weight:800; color:var(--text-main); margin-bottom:6px;">
+              Ready to Spin! 🎲
+            </div>
+            <div id="spinner-slot-sub" style="font-size:0.8rem; color:var(--text-muted);">
+              Tap the button to pick a date spot
+            </div>
+            <div id="spinner-winner-card" style="display:none; width:100%; margin-top:8px;"></div>
+          </div>
+
+          <!-- Spinner Controls -->
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button id="btn-spin-now" class="btn-primary" onclick="spinDateVault()" style="font-size:1.02rem; padding:12px 20px; font-weight:800; background:linear-gradient(135deg, #ec4899, #f43f5e); border:none; box-shadow:0 4px 15px rgba(236, 72, 153, 0.4);">
+              🎲 Spin the Vault!
+            </button>
+            <button id="btn-spin-veto" class="btn-secondary" onclick="vetoDateSpin()" style="display:none; font-size:0.82rem; padding:8px 14px; border-color:var(--rose); color:var(--rose);">
+              🔄 Veto (1 Left Tonight)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUBTAB 3: COIN FLIP & DECISION WHEELS -->
+      <div id="dates-view-decider" style="display:none; flex-direction:column; gap:16px;">
+        <!-- Animated 3D Coin Flip -->
+        <div style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius-lg); padding:20px; text-align:center; box-shadow:var(--card-shadow);">
+          <div style="font-weight:800; font-size:1.05rem; color:var(--text-main); margin-bottom:4px;">
+            🪙 Tamir vs. Mikush 50/50 Tie-Breaker
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:18px;">
+            Can't agree who chooses? Let physics decide!
+          </div>
+
+          <!-- 3D Coin Visual -->
+          <div style="perspective: 800px; display:flex; justify-content:center; align-items:center; margin:14px 0 20px 0;">
+            <div id="decider-coin" class="decider-coin" style="width:110px; height:110px; position:relative;">
+              <div class="coin-face coin-face-tamir">
+                <span style="font-size:2rem;">🌿</span>
+                <span style="font-size:0.78rem; font-weight:800; color:#10b981; margin-top:2px;">TAMIR</span>
+              </div>
+              <div class="coin-face coin-face-mikush">
+                <span style="font-size:2rem;">🌸</span>
+                <span style="font-size:0.78rem; font-weight:800; color:#ec4899; margin-top:2px;">MIKUSH</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="coin-result-banner" style="font-size:1rem; font-weight:800; color:var(--text-main); min-height:24px; margin-bottom:12px;"></div>
+
+          <button id="btn-flip-coin" class="btn-primary" onclick="flipDeciderCoin()" style="font-size:0.95rem; padding:10px 24px; font-weight:700;">
+            🪙 Flip the Coin!
+          </button>
+        </div>
+
+        <!-- Saved Decision Wheels -->
+        <div style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:var(--radius-lg); padding:16px; box-shadow:var(--card-shadow);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div>
+              <div style="font-weight:800; font-size:1rem; color:var(--text-main);">🎡 Quick Decision Wheels</div>
+              <div style="font-size:0.73rem; color:var(--text-muted);">Tap a wheel to pick instantly</div>
+            </div>
+            <button class="btn-secondary" onclick="openAddCustomWheelModal()" style="font-size:0.75rem; padding:6px 10px;">
+              + New Wheel
+            </button>
+          </div>
+
+          <div id="presets-list-container" style="display:flex; flex-direction:column; gap:10px;">
+            <!-- Loaded via JS -->
+          </div>
+        </div>
+      </div>
+
     </main>
   </section>
 
@@ -1586,7 +1808,7 @@
     </button>
     <button class="nav-tab" id="nav-btn-groceries" onclick="switchTab('groceries')">
       <span class="tab-icon">🛒</span>
-      <span class="tab-label">Groceries</span>
+      <span class="tab-label">Shop</span>
       <span class="nav-badge" id="badge-groceries" style="display:none;">0</span>
     </button>
     <button class="nav-tab" id="nav-btn-meals" onclick="switchTab('meals')">
@@ -1597,6 +1819,10 @@
       <span class="tab-icon">🔧</span>
       <span class="tab-label">Tasks</span>
       <span class="nav-badge" id="badge-maintenance" style="display:none;">0</span>
+    </button>
+    <button class="nav-tab" id="nav-btn-dates" onclick="switchTab('dates')">
+      <span class="tab-icon">✨</span>
+      <span class="tab-label">Dates</span>
     </button>
   </nav>
 
@@ -1952,6 +2178,140 @@
     </div>
   </div>
 
+
+  <!-- ── ADD FRIDGE ITEM MODAL ── -->
+  <div class="modal-overlay" id="add-fridge-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">🧊 Put in Fridge</div>
+        <button class="btn-close-modal" onclick="closeModal('add-fridge-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Food / Leftover Name</label>
+          <input type="text" id="fridge-input-name" class="form-control" placeholder="e.g. Shakshuka leftovers, Tomato pasta">
+        </div>
+        <div class="form-group">
+          <label>Portions / Notes (Optional)</label>
+          <input type="text" id="fridge-input-portions" class="form-control" placeholder="e.g. 2 portions, Eat by Wednesday">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('add-fridge-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitAddFridgeItem()">Put in Fridge</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ADD DATE SPOT MODAL ── -->
+  <div class="modal-overlay" id="add-date-spot-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">✨ Add to Date Vault</div>
+        <button class="btn-close-modal" onclick="closeModal('add-date-spot-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Place / Idea Name</label>
+          <input type="text" id="date-input-name" class="form-control" placeholder="e.g. Mina Gelateria, Beach Sunset Picnic">
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="date-input-category" class="form-control">
+            <option value="Food & Drinks">Food &amp; Drinks</option>
+            <option value="Coffee & Dessert">Coffee &amp; Dessert</option>
+            <option value="Activity">Activity</option>
+            <option value="Outdoors / Trip">Outdoors / Trip</option>
+            <option value="At Home / Cozy">At Home / Cozy</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Area / Location</label>
+          <input type="text" id="date-input-area" class="form-control" placeholder="e.g. Old Town, Promenade, Dizengoff">
+        </div>
+        <div class="form-group">
+          <label>Vibe Tags (comma separated)</label>
+          <input type="text" id="date-input-vibes" class="form-control" placeholder="e.g. cozy, casual, wine, gelato">
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="date-input-status" class="form-control">
+            <option value="wishlist">✨ Wishlist (Want to try)</option>
+            <option value="visited">❤️ Already visited</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Highlights / Notes</label>
+          <textarea id="date-input-notes" class="form-control" rows="2" placeholder="e.g. Order the pistachio, get table by the window"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('add-date-spot-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitAddDateSpot()">Save Spot</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── REVIEW DATE SPOT MODAL ── -->
+  <div class="modal-overlay" id="review-date-spot-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title" id="review-modal-title">⭐ Rate Date Spot</div>
+        <button class="btn-close-modal" onclick="closeModal('review-date-spot-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="review-spot-id">
+        <div id="review-active-user-badge" style="margin-bottom:12px;"></div>
+        <div class="form-group">
+          <label>Your Verdict</label>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+            <button type="button" class="loc-pill" id="verdict-btn-loved" onclick="selectVerdict('loved')" style="text-align:center; padding:10px 4px; font-size:0.8rem;">
+              ❤️ Loved It
+            </button>
+            <button type="button" class="loc-pill" id="verdict-btn-okay" onclick="selectVerdict('okay')" style="text-align:center; padding:10px 4px; font-size:0.8rem;">
+              👍 It's Okay
+            </button>
+            <button type="button" class="loc-pill" id="verdict-btn-skip" onclick="selectVerdict('skip')" style="text-align:center; padding:10px 4px; font-size:0.8rem;">
+              👎 Rather Skip
+            </button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label>Highlight Notes / Dishes Ordered</label>
+          <textarea id="review-input-notes" class="form-control" rows="2" placeholder="e.g. The crust was amazing, a bit noisy on weekends"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('review-date-spot-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitReviewDateSpot()">Save Review</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ADD CUSTOM WHEEL MODAL ── -->
+  <div class="modal-overlay" id="add-custom-wheel-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">🎡 Create Decision Wheel</div>
+        <button class="btn-close-modal" onclick="closeModal('add-custom-wheel-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Wheel Title</label>
+          <input type="text" id="wheel-input-title" class="form-control" placeholder="e.g. What Movie Genre Tonight?">
+        </div>
+        <div class="form-group">
+          <label>Options (One per line)</label>
+          <textarea id="wheel-input-options" class="form-control" rows="5" placeholder="Sci-Fi Thriller&#10;Cute Rom-Com&#10;Ghibli Anime&#10;True Crime Doc&#10;Action Adventure"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('add-custom-wheel-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitCustomWheel()">Create Wheel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════════════════════════════
        JAVASCRIPT: APP SHELL, ROUTING, PROFILES, TABS & PWA
   ══════════════════════════════════════════════════════ -->
@@ -2103,7 +2463,7 @@
     let currentTab = 'plants';
 
     function switchTab(tabName) {
-      const validTabs = ['plants', 'groceries', 'meals', 'maintenance'];
+      const validTabs = ['plants', 'groceries', 'meals', 'maintenance', 'dates'];
       if (!validTabs.includes(tabName)) tabName = 'plants';
       currentTab = tabName;
 
@@ -2131,16 +2491,22 @@
         loadGroceries();
       } else if (tabName === 'meals') {
         loadMealPlan();
+        loadFridgeItems();
       } else if (tabName === 'maintenance') {
         loadMaintenanceTasks();
+      } else if (tabName === 'dates') {
+        loadDateSpots();
+        loadRandomizerPresets();
       }
     }
 
     // Support browser back/forward buttons
     window.addEventListener('popstate', (e) => {
-      const path = window.location.pathname.replace(/^\//, '').toLowerCase();
+      let path = window.location.pathname.replace(/^\//, '').toLowerCase();
+      if (path === 'tasks') path = 'maintenance';
+      if (path === 'shop') path = 'groceries';
       const tabFromPath = path === '' ? 'plants' : path;
-      if (['plants', 'groceries', 'meals', 'maintenance'].includes(tabFromPath)) {
+      if (['plants', 'groceries', 'meals', 'maintenance', 'dates'].includes(tabFromPath)) {
         switchTab(tabFromPath);
       }
     });
@@ -2712,6 +3078,14 @@
                     title="Toggle Double Batch (2x Ingredients)"
                   >
                     ${isDoubleBatch ? '✖️2 Batch (2x)' : '+ 2x Batch'}
+                  </button>
+                  <button 
+                    class="meal-leftovers-badge" 
+                    style="cursor:pointer; background:rgba(6,182,212,0.2); color:#38bdf8; border-color:rgba(6,182,212,0.4);"
+                    onclick="quickSendToFridge('${escapeHtml(title)}')"
+                    title="Put leftover portions into fridge tracker"
+                  >
+                    🧊 Fridge
                   </button>
                 ` : ''}
               </div>
@@ -3933,13 +4307,16 @@
           cardBorderColor = 'rgba(245, 158, 11, 0.4)';
         }
 
-        const userPill = t.last_completed_by === 'Mikush' ?
-          `<span class="user-pill pill-mikush">🌸 Mikush</span>` :
-          `<span class="user-pill pill-tamir">🌿 Tamir</span>`;
-
-        const lastDoneStr = t.last_completed_at ? 
-          `Last done ${t.days_elapsed}d ago by ${userPill}` : 
-          'Never completed yet';
+        const isNeverCompleted = !t.is_completed || !t.last_completed_at || !t.last_completed_by;
+        let lastDoneStr = '';
+        if (isNeverCompleted) {
+          lastDoneStr = '<span style="color:var(--text-dim); font-style:italic;">Not done yet — waiting for first log</span>';
+        } else {
+          const userPill = t.last_completed_by === 'Mikush' ?
+            `<span class="user-pill pill-mikush">🌸 Mikush</span>` :
+            `<span class="user-pill pill-tamir">🌿 Tamir</span>`;
+          lastDoneStr = `Last done ${t.days_elapsed === 0 ? 'today' : `${t.days_elapsed}d ago`} by ${userPill}`;
+        }
 
         return `
           <div class="plant-card ${isOverdue ? 'overdue' : (isDueSoon ? 'due-today' : 'good')}" style="border-color:${cardBorderColor}; padding:14px;">
@@ -3981,6 +4358,14 @@
                 style="flex:1; padding:8px 12px; font-size:0.85rem; font-weight:700;"
               >
                 ✅ Mark Done
+              </button>
+              <button 
+                class="btn-log-action" 
+                onclick="resetMaintenanceTaskDirect(${t.id}, '${escapeHtml(t.title)}')"
+                title="Reset to uncompleted"
+                style="padding:8px 10px; font-size:0.75rem;"
+              >
+                🔄
               </button>
               <button 
                 class="btn-log-action" 
@@ -4070,25 +4455,722 @@
       }
     }
 
+
+    // ---------- RESET TASK & LOGOUT CONFIRM ----------
+    async function resetMaintenanceTaskDirect(taskId, title) {
+      if (!confirm(`Reset "${title}" to uncompleted status?`)) return;
+      try {
+        const res = await fetch(`/maintenance/api/reset/${taskId}`, {
+          method: 'POST',
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error('Failed to reset task');
+        showToast(`Reset "${title}" to not completed`);
+        loadMaintenanceTasks();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    function confirmLogout() {
+      if (confirm("Are you sure you want to log out of Apartment Hub on this device?")) {
+        handleLogout();
+      }
+    }
+
+    // ========================================================
+    // 🧊 FRIDGE & LEFTOVERS TRACKER LOGIC
+    // ========================================================
+    let fridgeItems = [];
+
+    async function loadFridgeItems() {
+      const container = document.getElementById('fridge-items-container');
+      if (!container) return;
+      try {
+        const res = await fetch('/meals/api/fridge', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('Failed to load fridge items');
+        fridgeItems = await res.json();
+        renderFridgeItems();
+      } catch (err) {
+        console.warn('Error loading fridge items:', err);
+      }
+    }
+
+    function renderFridgeItems() {
+      const container = document.getElementById('fridge-items-container');
+      if (!container) return;
+
+      if (!fridgeItems || fridgeItems.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center; padding:16px 8px; color:var(--text-dim); font-size:0.8rem; background:rgba(0,0,0,0.18); border-radius:var(--radius-sm); border:1px dashed var(--card-border);">
+            No leftovers in the fridge right now 🎉
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = fridgeItems.map(item => {
+        let badgeStyle = 'background:rgba(16,185,129,0.15); color:var(--emerald); border:1px solid rgba(16,185,129,0.3);';
+        if (item.urgency_level === 'medium') {
+          badgeStyle = 'background:rgba(245,158,11,0.15); color:var(--amber); border:1px solid rgba(245,158,11,0.3);';
+        } else if (item.urgency_level === 'urgent') {
+          badgeStyle = 'background:rgba(244,63,94,0.18); color:var(--rose); border:1px solid rgba(244,63,94,0.4); font-weight:700;';
+        }
+
+        const authorPill = item.added_by === 'Mikush' ?
+          '<span class="user-pill pill-mikush" style="font-size:0.65rem; padding:2px 6px;">🌸 Mikush</span>' :
+          '<span class="user-pill pill-tamir" style="font-size:0.65rem; padding:2px 6px;">🌿 Tamir</span>';
+
+        return `
+          <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.45); border:1px solid var(--card-border); border-radius:var(--radius-sm); padding:10px 12px; gap:8px;">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <span style="font-weight:700; font-size:0.9rem; color:var(--text-main);">${escapeHtml(item.name)}</span>
+                <span style="font-size:0.7rem; padding:2px 7px; border-radius:var(--radius-pill); ${badgeStyle}">${escapeHtml(item.urgency_label)}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; margin-top:3px; font-size:0.72rem; color:var(--text-dim);">
+                ${item.portions_note ? `<span>🍽️ ${escapeHtml(item.portions_note)}</span> · ` : ''}
+                <span>Added by ${authorPill}</span>
+              </div>
+            </div>
+            <button 
+              class="btn-secondary" 
+              onclick="deleteFridgeItemDirect(${item.id}, '${escapeHtml(item.name)}')" 
+              style="padding:6px 10px; font-size:0.75rem; border-color:var(--emerald); color:var(--emerald); flex-shrink:0;"
+              title="Mark eaten / clear from fridge"
+            >
+              ✅ Ate It
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openAddFridgeModal() {
+      document.getElementById('fridge-input-name').value = '';
+      document.getElementById('fridge-input-portions').value = '';
+      openModal('add-fridge-modal');
+      setTimeout(() => document.getElementById('fridge-input-name').focus(), 150);
+    }
+
+    async function submitAddFridgeItem() {
+      const name = document.getElementById('fridge-input-name').value.trim();
+      const portions = document.getElementById('fridge-input-portions').value.trim();
+      if (!name) {
+        alert('Please enter a food or leftover name');
+        return;
+      }
+
+      try {
+        const res = await fetch('/meals/api/fridge', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ name: name, portions_note: portions || null })
+        });
+        if (!res.ok) throw new Error('Failed to add fridge item');
+        closeModal('add-fridge-modal');
+        showToast(`🧊 Put "${name}" in the fridge`);
+        loadFridgeItems();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function deleteFridgeItemDirect(itemId, name) {
+      try {
+        const res = await fetch(`/meals/api/fridge/${itemId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error('Failed to delete fridge item');
+        showToast(`Cleared "${name}" from fridge`);
+        loadFridgeItems();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function quickSendToFridge(mealTitle) {
+      if (!mealTitle) return;
+      try {
+        const res = await fetch('/meals/api/fridge', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ name: mealTitle, portions_note: 'Leftovers' })
+        });
+        if (!res.ok) throw new Error('Failed to put leftovers in fridge');
+        showToast(`🧊 Put "${mealTitle}" leftovers in fridge!`);
+        loadFridgeItems();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+
+    // ========================================================
+    // ✨ THE DATE & DECIDER VAULT LOGIC (/dates)
+    // ========================================================
+    let dateSpots = [];
+    let dateStatusFilter = 'all';
+    let dateCategoryFilter = 'all';
+    let currentSpinWinner = null;
+    let spinMode = 'new';
+    let vetoUsedTonight = sessionStorage.getItem('date_veto_used') === 'true';
+    let deciderCoinAngle = 0;
+    let randomizerPresets = [];
+
+    function switchDatesSubtab(subtab) {
+      ['vault', 'spinner', 'decider'].forEach(s => {
+        const btn = document.getElementById(`dates-subnav-${s}`);
+        const view = document.getElementById(`dates-view-${s}`);
+        if (btn) btn.classList.toggle('active', s === subtab);
+        if (view) view.style.display = (s === subtab) ? 'flex' : 'none';
+      });
+
+      if (subtab === 'vault') {
+        loadDateSpots();
+      } else if (subtab === 'decider') {
+        loadRandomizerPresets();
+      }
+    }
+
+    async function loadDateSpots() {
+      try {
+        let url = `/dates/api/spots?status=${encodeURIComponent(dateStatusFilter)}&category=${encodeURIComponent(dateCategoryFilter)}`;
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('Failed to load date spots');
+        dateSpots = await res.json();
+        updateDateFilterCounts();
+        renderDateSpots();
+      } catch (err) {
+        console.warn('Error loading date spots:', err);
+      }
+    }
+
+    function updateDateFilterCounts() {
+      const total = dateSpots.length;
+      let countWishlist = 0;
+      let countVisited = 0;
+      dateSpots.forEach(s => {
+        if (s.status === 'wishlist') countWishlist++;
+        else countVisited++;
+      });
+      const elAll = document.getElementById('dates-count-all');
+      const elWish = document.getElementById('dates-count-wishlist');
+      const elVis = document.getElementById('dates-count-visited');
+      if (elAll) elAll.innerText = total;
+      if (elWish) elWish.innerText = countWishlist;
+      if (elVis) elVis.innerText = countVisited;
+    }
+
+    function setDateStatusFilter(status) {
+      dateStatusFilter = status;
+      ['all', 'wishlist', 'visited'].forEach(st => {
+        const btn = document.getElementById(`btn-filter-status-${st}`);
+        if (btn) btn.classList.toggle('active', st === status);
+      });
+      renderDateSpots();
+    }
+
+    function setDateCategoryFilter(cat) {
+      dateCategoryFilter = cat;
+      loadDateSpots();
+    }
+
+    function renderDateSpots() {
+      const listEl = document.getElementById('date-spots-list');
+      if (!listEl) return;
+
+      let filtered = dateSpots;
+      if (dateStatusFilter !== 'all') {
+        filtered = filtered.filter(s => s.status === dateStatusFilter);
+      }
+      if (dateCategoryFilter !== 'all') {
+        filtered = filtered.filter(s => (s.category || '').toLowerCase() === dateCategoryFilter.toLowerCase());
+      }
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div style="text-align:center; padding:36px 12px; color:var(--text-muted); background:var(--card-bg); border-radius:var(--radius-md); border:1px dashed var(--card-border);">
+            <div style="font-size:2rem; margin-bottom:6px;">✨</div>
+            <div style="font-weight:700; color:var(--text-main);">No spots found</div>
+            <div style="font-size:0.78rem; margin-top:2px;">Tap "+ Add Spot" to save a date night idea!</div>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(s => {
+        const isVisited = s.status === 'visited';
+        const isMutual = s.is_mutual_love;
+
+        function formatVerdict(user, v) {
+          const icon = user === 'Mikush' ? '🌸' : '🌿';
+          const name = user;
+          if (!v) {
+            return `<span style="font-size:0.7rem; color:var(--text-dim); background:rgba(255,255,255,0.04); padding:2px 8px; border-radius:var(--radius-pill); border:1px solid var(--card-border);">${icon} ${name}: Unrated</span>`;
+          }
+          if (v === 'loved') {
+            return `<span style="font-size:0.7rem; color:#f43f5e; background:rgba(244,63,94,0.15); padding:2px 8px; border-radius:var(--radius-pill); border:1px solid rgba(244,63,94,0.3); font-weight:700;">${icon} ${name}: Loved it ❤️</span>`;
+          }
+          if (v === 'okay') {
+            return `<span style="font-size:0.7rem; color:#f59e0b; background:rgba(245,158,11,0.15); padding:2px 8px; border-radius:var(--radius-pill); border:1px solid rgba(245,158,11,0.3);">${icon} ${name}: It's okay 👍</span>`;
+          }
+          return `<span style="font-size:0.7rem; color:var(--text-dim); background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:var(--radius-pill); border:1px solid var(--card-border);">${icon} ${name}: Skip 👎</span>`;
+        }
+
+        const tamirBadge = formatVerdict('Tamir', s.tamir_verdict);
+        const mikushBadge = formatVerdict('Mikush', s.mikush_verdict);
+
+        const vibePills = (s.vibe_tags || []).map(v => 
+          `<span style="font-size:0.68rem; color:var(--sky); background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.25); border-radius:var(--radius-pill); padding:2px 7px;">#${escapeHtml(v)}</span>`
+        ).join(' ');
+
+        return `
+          <div class="plant-card" style="padding:14px; border-color:${isMutual ? 'rgba(236,72,153,0.45)' : 'var(--card-border)'}; box-shadow:${isMutual ? '0 4px 18px rgba(236,72,153,0.15)' : 'none'};">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div>
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <span style="font-weight:800; font-size:1rem; color:var(--text-main);">${escapeHtml(s.name)}</span>
+                  <span class="location-badge" style="font-size:0.68rem;">${escapeHtml(s.category)}</span>
+                  ${s.location_area ? `<span style="font-size:0.7rem; color:var(--text-dim); background:rgba(255,255,255,0.05); padding:1px 6px; border-radius:var(--radius-pill);">📍 ${escapeHtml(s.location_area)}</span>` : ''}
+                  ${isMutual ? `<span style="font-size:0.68rem; background:linear-gradient(135deg, #ec4899, #f43f5e); color:#fff; font-weight:800; padding:2px 8px; border-radius:var(--radius-pill); box-shadow:0 2px 8px rgba(236,72,153,0.4);">💖 MUTUAL FAVORITE</span>` : ''}
+                </div>
+                ${vibePills ? `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">${vibePills}</div>` : ''}
+              </div>
+              <span class="urgency-badge ${isVisited ? 'badge-good' : 'badge-due'}" style="font-size:0.68rem; flex-shrink:0;">
+                ${isVisited ? 'Visited' : 'Wishlist'}
+              </span>
+            </div>
+
+            <!-- Partner Verdict Badges -->
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:10px; padding-top:8px; border-top:1px solid var(--card-border);">
+              ${tamirBadge}
+              ${mikushBadge}
+            </div>
+
+            ${s.highlight_notes ? `
+              <div style="font-size:0.78rem; color:var(--text-muted); background:rgba(0,0,0,0.25); border-left:3px solid var(--accent); padding:6px 10px; border-radius:var(--radius-sm); margin-top:8px;">
+                💡 ${escapeHtml(s.highlight_notes)}
+              </div>
+            ` : ''}
+
+            <!-- Actions Bar -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:8px;">
+              <button 
+                class="btn-secondary" 
+                onclick="openReviewDateSpotModal(${s.id})" 
+                style="flex:1; padding:7px 10px; font-size:0.78rem; border-color:var(--accent); color:var(--accent);"
+              >
+                ⭐ Rate / Review (${currentProfile})
+              </button>
+              <button 
+                class="btn-log-action" 
+                onclick="deleteDateSpotDirect(${s.id}, '${escapeHtml(s.name)}')" 
+                title="Delete Spot"
+                style="padding:7px 10px; font-size:0.8rem;"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openAddDateSpotModal() {
+      document.getElementById('date-input-name').value = '';
+      document.getElementById('date-input-category').value = 'Food & Drinks';
+      document.getElementById('date-input-area').value = '';
+      document.getElementById('date-input-vibes').value = '';
+      document.getElementById('date-input-status').value = 'wishlist';
+      document.getElementById('date-input-notes').value = '';
+      openModal('add-date-spot-modal');
+      setTimeout(() => document.getElementById('date-input-name').focus(), 150);
+    }
+
+    async function submitAddDateSpot() {
+      const name = document.getElementById('date-input-name').value.trim();
+      if (!name) {
+        alert('Please enter a place or idea name');
+        return;
+      }
+      const category = document.getElementById('date-input-category').value;
+      const area = document.getElementById('date-input-area').value.trim();
+      const vibes = document.getElementById('date-input-vibes').value.trim();
+      const status = document.getElementById('date-input-status').value;
+      const notes = document.getElementById('date-input-notes').value.trim();
+
+      try {
+        const res = await fetch('/dates/api/spots', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            name: name,
+            category: category,
+            location_area: area || null,
+            vibe_tags: vibes || null,
+            status: status,
+            highlight_notes: notes || null
+          })
+        });
+        if (!res.ok) throw new Error('Failed to save date spot');
+        closeModal('add-date-spot-modal');
+        showToast(`✨ Saved "${name}" to the Date Vault`);
+        loadDateSpots();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    let activeReviewVerdict = null;
+
+    function openReviewDateSpotModal(spotId) {
+      const spot = dateSpots.find(s => s.id === spotId);
+      if (!spot) return;
+
+      document.getElementById('review-spot-id').value = spotId;
+      document.getElementById('review-modal-title').innerText = `⭐ Review: ${spot.name}`;
+      
+      const badgeContainer = document.getElementById('review-active-user-badge');
+      badgeContainer.innerHTML = currentProfile === 'Mikush' ?
+        `<div style="font-size:0.8rem; color:#ec4899; font-weight:700;">🌸 Submitting review as: Mikush</div>` :
+        `<div style="font-size:0.8rem; color:#10b981; font-weight:700;">🌿 Submitting review as: Tamir</div>`;
+
+      // Pre-select current active user's rating
+      const existingVerdict = currentProfile === 'Mikush' ? spot.mikush_verdict : spot.tamir_verdict;
+      selectVerdict(existingVerdict);
+
+      document.getElementById('review-input-notes').value = spot.highlight_notes || '';
+      openModal('review-date-spot-modal');
+    }
+
+    function selectVerdict(verdict) {
+      activeReviewVerdict = verdict;
+      ['loved', 'okay', 'skip'].forEach(v => {
+        const btn = document.getElementById(`verdict-btn-${v}`);
+        if (btn) btn.classList.toggle('active', v === verdict);
+      });
+    }
+
+    async function submitReviewDateSpot() {
+      const spotId = document.getElementById('review-spot-id').value;
+      const notes = document.getElementById('review-input-notes').value.trim();
+
+      try {
+        const res = await fetch(`/dates/api/spots/${spotId}/review`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            verdict: activeReviewVerdict,
+            highlight_notes: notes || null
+          })
+        });
+        if (!res.ok) throw new Error('Failed to submit review');
+        closeModal('review-date-spot-modal');
+        showToast(`⭐ Updated ${currentProfile}'s review!`);
+        loadDateSpots();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function deleteDateSpotDirect(spotId, name) {
+      if (!confirm(`Delete "${name}" from the Date Vault?`)) return;
+      try {
+        const res = await fetch(`/dates/api/spots/${spotId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error('Failed to delete spot');
+        showToast(`Removed "${name}" from vault`);
+        loadDateSpots();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+
+    // ========================================================
+    // 🎲 DATE NIGHT SPINNER & VETO LOGIC
+    // ========================================================
+    function setSpinMode(mode) {
+      spinMode = mode;
+      const btnNew = document.getElementById('spin-mode-new');
+      const btnFav = document.getElementById('spin-mode-fav');
+      if (btnNew) btnNew.classList.toggle('active', mode === 'new');
+      if (btnFav) btnFav.classList.toggle('active', mode === 'favorite');
+    }
+
+    async function spinDateVault(excludeId = null) {
+      const slotText = document.getElementById('spinner-slot-text');
+      const slotSub = document.getElementById('spinner-slot-sub');
+      const winnerCard = document.getElementById('spinner-winner-card');
+      const spinBtn = document.getElementById('btn-spin-now');
+      const vetoBtn = document.getElementById('btn-spin-veto');
+
+      if (!slotText || !spinBtn) return;
+
+      spinBtn.disabled = true;
+      if (winnerCard) winnerCard.style.display = 'none';
+
+      let url = `/dates/api/spin?mode=${spinMode}&category=${encodeURIComponent(dateCategoryFilter)}`;
+      if (excludeId) url += `&exclude_id=${excludeId}`;
+
+      let data;
+      try {
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('Spin request failed');
+        data = await res.json();
+      } catch (err) {
+        spinBtn.disabled = false;
+        alert('Spin failed: ' + err.message);
+        return;
+      }
+
+      if (data.status === 'empty' || !data.spot) {
+        spinBtn.disabled = false;
+        slotText.innerText = "No candidates found!";
+        slotSub.innerText = data.message || "Add some date ideas to the vault first.";
+        return;
+      }
+
+      currentSpinWinner = data.spot;
+
+      const fakeNames = [
+        "Sunset Beach Picnic", "Artisan Gelato Walk", "Neapolitan Pizza Night",
+        "Cozy Coffee & Books", "Thai Street Food", "Stargazing Balcony",
+        "Sushi & Edamame", "Board Game Duel"
+      ];
+      let iterations = 0;
+      const interval = setInterval(() => {
+        const randomName = fakeNames[Math.floor(Math.random() * fakeNames.length)];
+        slotText.innerText = `🎲 ${randomName}`;
+        slotSub.innerText = `Selecting among ${data.total_candidates} options...`;
+        iterations++;
+        if (iterations > 14) {
+          clearInterval(interval);
+          revealSpinWinner(data.spot);
+          spinBtn.disabled = false;
+        }
+      }, 75);
+    }
+
+    function revealSpinWinner(spot) {
+      const slotText = document.getElementById('spinner-slot-text');
+      const slotSub = document.getElementById('spinner-slot-sub');
+      const winnerCard = document.getElementById('spinner-winner-card');
+      const vetoBtn = document.getElementById('btn-spin-veto');
+
+      slotText.innerText = `🎉 ${spot.name}`;
+      slotSub.innerText = `${spot.category} ${spot.location_area ? '· ' + spot.location_area : ''}`;
+
+      const isMutual = spot.is_mutual_love;
+      winnerCard.innerHTML = `
+        <div style="background:rgba(0,0,0,0.35); border:1px solid var(--accent); border-radius:var(--radius-md); padding:14px; text-align:left; margin-top:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-weight:800; font-size:1.05rem; color:var(--text-main);">${escapeHtml(spot.name)}</span>
+            ${isMutual ? `<span style="font-size:0.68rem; background:linear-gradient(135deg, #ec4899, #f43f5e); color:#fff; font-weight:800; padding:2px 8px; border-radius:var(--radius-pill);">💖 MUTUAL LOVE</span>` : ''}
+          </div>
+          ${spot.highlight_notes ? `<div style="font-size:0.8rem; color:var(--text-muted); margin-top:6px;">💡 ${escapeHtml(spot.highlight_notes)}</div>` : ''}
+        </div>
+      `;
+      winnerCard.style.display = 'block';
+
+      if (vetoBtn) {
+        if (!vetoUsedTonight) {
+          vetoBtn.style.display = 'block';
+          vetoBtn.innerText = '🔄 Veto (1 Left Tonight)';
+          vetoBtn.disabled = false;
+        } else {
+          vetoBtn.style.display = 'block';
+          vetoBtn.innerText = '⚠️ Veto Used (Play what comes up!)';
+          vetoBtn.disabled = true;
+        }
+      }
+    }
+
+    function vetoDateSpin() {
+      if (vetoUsedTonight || !currentSpinWinner) return;
+      vetoUsedTonight = true;
+      sessionStorage.setItem('date_veto_used', 'true');
+      showToast(`🔄 Veto called! Rerolling date night...`);
+      spinDateVault(currentSpinWinner.id);
+    }
+
+
+    // ========================================================
+    // 🪙 COIN FLIP & DECISION WHEELS LOGIC
+    // ========================================================
+    function flipDeciderCoin() {
+      const coin = document.getElementById('decider-coin');
+      const btn = document.getElementById('btn-flip-coin');
+      const banner = document.getElementById('coin-result-banner');
+
+      if (!coin || !btn) return;
+      btn.disabled = true;
+      banner.innerText = 'Flipping... 🪙';
+
+      const winner = Math.random() < 0.5 ? 'Tamir' : 'Mikush';
+      deciderCoinAngle += 1800 + (winner === 'Mikush' ? 180 : 0);
+      coin.style.transform = `rotateY(${deciderCoinAngle}deg)`;
+
+      setTimeout(() => {
+        btn.disabled = false;
+        if (winner === 'Tamir') {
+          banner.innerHTML = `<span style="color:#10b981;">🎉 Tamir wins the toss! Tamir picks tonight.</span>`;
+        } else {
+          banner.innerHTML = `<span style="color:#ec4899;">🎉 Mikush wins the toss! Mikush picks tonight.</span>`;
+        }
+      }, 2300);
+    }
+
+    async function loadRandomizerPresets() {
+      const container = document.getElementById('presets-list-container');
+      if (!container) return;
+
+      try {
+        const res = await fetch('/dates/api/presets', { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('Failed to load presets');
+        randomizerPresets = await res.json();
+        renderRandomizerPresets();
+      } catch (err) {
+        console.warn('Error loading presets:', err);
+      }
+    }
+
+    function renderRandomizerPresets() {
+      const container = document.getElementById('presets-list-container');
+      if (!container) return;
+
+      if (!randomizerPresets || randomizerPresets.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:14px; color:var(--text-dim); font-size:0.8rem;">No wheels yet. Tap "+ New Wheel" to create one!</div>`;
+        return;
+      }
+
+      container.innerHTML = randomizerPresets.map(p => {
+        const optionsList = (p.options || []).join(' · ');
+        return `
+          <div style="background:rgba(15,23,42,0.5); border:1px solid var(--card-border); border-radius:var(--radius-md); padding:12px; display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight:800; font-size:0.95rem; color:var(--text-main);">${escapeHtml(p.title)}</span>
+              <div style="display:flex; gap:6px;">
+                <button class="btn-primary" onclick="spinPresetDirect(${p.id})" style="padding:5px 12px; font-size:0.75rem; font-weight:700;">
+                  🎲 Spin
+                </button>
+                <button class="btn-log-action" onclick="deletePresetDirect(${p.id}, '${escapeHtml(p.title)}')" style="padding:5px 8px; font-size:0.75rem;">
+                  🗑️
+                </button>
+              </div>
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted); line-height:1.4;">
+              ${escapeHtml(optionsList)}
+            </div>
+            <div id="preset-result-${p.id}" style="display:none; font-size:0.85rem; font-weight:800; color:var(--accent); background:rgba(0,0,0,0.3); padding:6px 10px; border-radius:var(--radius-sm); margin-top:2px;"></div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function spinPresetDirect(presetId) {
+      const preset = randomizerPresets.find(p => p.id === presetId);
+      if (!preset || !preset.options || preset.options.length === 0) return;
+
+      const resultEl = document.getElementById(`preset-result-${presetId}`);
+      if (!resultEl) return;
+
+      resultEl.style.display = 'block';
+      resultEl.innerText = "Spinning...";
+
+      let count = 0;
+      const interval = setInterval(() => {
+        const randomOpt = preset.options[Math.floor(Math.random() * preset.options.length)];
+        resultEl.innerText = `🎲 ${randomOpt}`;
+        count++;
+        if (count > 10) {
+          clearInterval(interval);
+          const winner = preset.options[Math.floor(Math.random() * preset.options.length)];
+          resultEl.innerHTML = `✨ Result: <strong>${escapeHtml(winner)}</strong>`;
+        }
+      }, 70);
+    }
+
+    function openAddCustomWheelModal() {
+      document.getElementById('wheel-input-title').value = '';
+      document.getElementById('wheel-input-options').value = '';
+      openModal('add-custom-wheel-modal');
+      setTimeout(() => document.getElementById('wheel-input-title').focus(), 150);
+    }
+
+    async function submitCustomWheel() {
+      const title = document.getElementById('wheel-input-title').value.trim();
+      const rawOptions = document.getElementById('wheel-input-options').value;
+      const options = rawOptions.split('\n').map(o => o.trim()).filter(o => o.length > 0);
+
+      if (!title) {
+        alert('Please give your wheel a title');
+        return;
+      }
+      if (options.length < 2) {
+        alert('Please add at least 2 options (one per line)');
+        return;
+      }
+
+      try {
+        const res = await fetch('/dates/api/presets', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ title: title, options: options })
+        });
+        if (!res.ok) throw new Error('Failed to create decision wheel');
+        closeModal('add-custom-wheel-modal');
+        showToast(`🎡 Created wheel "${title}"`);
+        loadRandomizerPresets();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function deletePresetDirect(presetId, title) {
+      if (!confirm(`Delete wheel "${title}"?`)) return;
+      try {
+        const res = await fetch(`/dates/api/presets/${presetId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error('Failed to delete wheel');
+        showToast(`Deleted wheel "${title}"`);
+        loadRandomizerPresets();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
     // ---------- INITIALIZATION ----------
     document.addEventListener('DOMContentLoaded', () => {
       // 1. Initialize user switcher DOM state without notification
       switchActiveUser(currentProfile, false);
 
-      // 2. Determine initial tab based on path (/groceries, /meals, /maintenance) or query param
-      const path = window.location.pathname.replace(/^\//, '').toLowerCase();
-      const validTabs = ['plants', 'groceries', 'meals', 'maintenance'];
+      // 2. Determine initial tab based on path (/groceries, /meals, /maintenance, /dates, /shop, /tasks) or query param
+      let path = window.location.pathname.replace(/^\//, '').toLowerCase();
+      if (path === 'tasks') path = 'maintenance';
+      if (path === 'shop') path = 'groceries';
+      const validTabs = ['plants', 'groceries', 'meals', 'maintenance', 'dates'];
       let initialTab = 'plants';
 
       if (validTabs.includes(path)) {
         initialTab = path;
       } else {
         const urlParams = new URLSearchParams(window.location.search);
-        const queryTab = urlParams.get('tab');
+        let queryTab = urlParams.get('tab');
+        if (queryTab === 'tasks') queryTab = 'maintenance';
+        if (queryTab === 'shop') queryTab = 'groceries';
         if (validTabs.includes(queryTab)) {
           initialTab = queryTab;
         } else {
-          const sessionTab = sessionStorage.getItem('active_hub_tab');
+          let sessionTab = sessionStorage.getItem('active_hub_tab');
+          if (sessionTab === 'tasks') sessionTab = 'maintenance';
+          if (sessionTab === 'shop') sessionTab = 'groceries';
           if (validTabs.includes(sessionTab)) {
             initialTab = sessionTab;
           }
@@ -4114,7 +5196,9 @@
       setInterval(() => {
         if (currentTab === 'plants') fetchPlants();
         else if (currentTab === 'groceries') loadGroceries();
+        else if (currentTab === 'meals') { loadMealPlan(); loadFridgeItems(); }
         else if (currentTab === 'maintenance') loadMaintenanceTasks();
+        else if (currentTab === 'dates') { loadDateSpots(); loadRandomizerPresets(); }
       }, 60000);
     });
   </script>

@@ -49,3 +49,13 @@ class MealPlan(Base):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     meal = relationship("Meal", back_populates="meal_plans")
+
+
+class FridgeItem(Base):
+    __tablename__ = "fridge_items"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    portions_note = Column(String(100), nullable=True)  # e.g. "2 portions", "Half pan"
+    cooked_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    added_by = Column(String(50), nullable=False, default="Tamir")

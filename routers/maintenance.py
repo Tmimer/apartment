@@ -47,22 +47,34 @@ DEFAULT_MAINTENANCE_TASKS = [
 
 
 def ensure_starter_tasks(db: Session):
-    """Pre-seeds default tasks if the maintenance_tasks table is empty."""
+    """Pre-seeds default tasks if the maintenance_tasks table is empty, and cleans up empty attributions."""
     count = db.query(func.count(MaintenanceTask.id)).scalar()
+    now = datetime.datetime.utcnow()
     if count == 0:
-        now = datetime.datetime.utcnow()
         for t in DEFAULT_MAINTENANCE_TASKS:
             task = MaintenanceTask(
                 title=t["title"],
                 category=t["category"],
                 interval_days=t["interval_days"],
                 notes=t.get("notes"),
-                last_completed_at=now - datetime.timedelta(days=int(t["interval_days"] * 0.7)),
-                last_completed_by="Tamir",
+                last_completed_at=None,
+                last_completed_by=None,
                 created_at=now
             )
             db.add(task)
         db.commit()
+
+
+def cleanup_default_attributions(db: Session):
+    """Safe startup cleanup: any task without a legitimate last_completed_at must have last_completed_by=None."""
+    try:
+        tasks = db.query(MaintenanceTask).filter(MaintenanceTask.last_completed_at == None).all()
+        for t in tasks:
+            if t.last_completed_by is not None:
+                t.last_completed_by = None
+        db.commit()
+    except Exception as e:
+        print(f"[!] Warning during maintenance task cleanup: {e}")
 
 
 # ===================== PYDANTIC SCHEMAS =====================
@@ -84,34 +96,50 @@ class MaintenanceTaskUpdatePayload(BaseModel):
 @maintenance_router.get("/api/tasks", dependencies=[Depends(require_auth_api)])
 def get_maintenance_tasks(db: Session = Depends(get_db)):
     """
-    Returns all maintenance tasks with urgency status:
-    - days_elapsed: days since last completed (or created)
-    - progress_pct: min(100, round((days_elapsed / interval_days) * 100))
-    - urgency_status: 'OVERDUE' (>=100%), 'DUE_SOON' (>=75%), or 'GOOD'
-    Sorted with overdue and due soon tasks first.
+    Returns all maintenance tasks with safe urgency status:
+    - Never completed tasks show days_elapsed since creation (or 0) without fake attribution.
+    - Completed tasks show days_elapsed since last_completed_at.
+    - Sorted with overdue and due soon tasks first.
     """
     ensure_starter_tasks(db)
+    cleanup_default_attributions(db)
     tasks = db.query(MaintenanceTask).all()
     now = datetime.datetime.utcnow()
 
     task_list = []
     for t in tasks:
-        reference_date = t.last_completed_at or t.created_at or now
-        days_elapsed = max(0, (now - reference_date).days)
+        is_completed = t.last_completed_at is not None
         interval = max(1, t.interval_days)
-        progress_pct = min(100, round((days_elapsed / interval) * 100))
 
-        if days_elapsed >= interval:
-            urgency = "OVERDUE"
-            sort_score = 300 + (days_elapsed - interval)
-        elif progress_pct >= 75:
-            urgency = "DUE_SOON"
-            sort_score = 200 + progress_pct
+        if is_completed:
+            reference_date = t.last_completed_at
+            days_elapsed = max(0, (now - reference_date).days)
+            progress_pct = min(100, round((days_elapsed / interval) * 100))
+            if days_elapsed >= interval:
+                urgency = "OVERDUE"
+                sort_score = 300 + (days_elapsed - interval)
+            elif progress_pct >= 75:
+                urgency = "DUE_SOON"
+                sort_score = 200 + progress_pct
+            else:
+                urgency = "GOOD"
+                sort_score = progress_pct
+            days_remaining = interval - days_elapsed
         else:
-            urgency = "GOOD"
-            sort_score = progress_pct
-
-        days_remaining = interval - days_elapsed
+            # Never completed yet - safe math without crash
+            created_ref = t.created_at or now
+            days_elapsed = max(0, (now - created_ref).days)
+            progress_pct = min(100, round((days_elapsed / interval) * 100))
+            if days_elapsed >= interval:
+                urgency = "OVERDUE"
+                sort_score = 280 + days_elapsed
+            elif progress_pct >= 60:
+                urgency = "DUE_SOON"
+                sort_score = 180 + progress_pct
+            else:
+                urgency = "GOOD"
+                sort_score = progress_pct
+            days_remaining = max(0, interval - days_elapsed)
 
         task_list.append({
             "id": t.id,
@@ -119,7 +147,8 @@ def get_maintenance_tasks(db: Session = Depends(get_db)):
             "category": t.category,
             "interval_days": t.interval_days,
             "last_completed_at": t.last_completed_at.isoformat() if t.last_completed_at else None,
-            "last_completed_by": t.last_completed_by,
+            "last_completed_by": t.last_completed_by if is_completed else None,
+            "is_completed": is_completed,
             "notes": t.notes,
             "days_elapsed": days_elapsed,
             "days_remaining": days_remaining,
@@ -168,17 +197,41 @@ def complete_maintenance_task(task_id: int, request: Request, db: Session = Depe
     }
 
 
+@maintenance_router.post("/api/reset/{task_id}", dependencies=[Depends(require_auth_api)])
+def reset_maintenance_task(task_id: int, db: Session = Depends(get_db)):
+    """Resets a task back to uncompleted state (last_completed_at=None, last_completed_by=None)."""
+    task = db.query(MaintenanceTask).filter(MaintenanceTask.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Maintenance task not found")
+
+    task.last_completed_at = None
+    task.last_completed_by = None
+    db.commit()
+    db.refresh(task)
+
+    return {
+        "status": "ok",
+        "message": f"Reset '{task.title}' to not completed yet",
+        "task": {
+            "id": task.id,
+            "title": task.title,
+            "last_completed_at": None,
+            "last_completed_by": None
+        }
+    }
+
+
 @maintenance_router.post("/api/tasks", dependencies=[Depends(require_auth_api)])
 def create_maintenance_task(payload: MaintenanceTaskCreatePayload, db: Session = Depends(get_db)):
-    """Creates a new recurring maintenance task."""
+    """Creates a new recurring maintenance task with uncompleted initial state."""
     now = datetime.datetime.utcnow()
     new_task = MaintenanceTask(
         title=payload.title.strip(),
         category=payload.category.strip() if payload.category else "General",
         interval_days=payload.interval_days,
         notes=payload.notes.strip() if payload.notes else None,
-        last_completed_at=now,
-        last_completed_by="Tamir",
+        last_completed_at=None,
+        last_completed_by=None,
         created_at=now
     )
     db.add(new_task)

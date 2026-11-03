@@ -10,6 +10,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_PASSCODE = os.getenv("APP_PASSCODE", "apartment123")
 SECRET_KEY = os.getenv("SECRET_KEY", "apartment-hub-secret-salt-2026")
 COOKIE_NAME = "apartment_session"
+USER_COOKIE_NAME = "apartment_user"
 COOKIE_MAX_AGE = 30 * 24 * 60 * 60  # 30 days in seconds
 
 ALLOWED_USERS = ["Tamir", "Mikush"]
@@ -23,6 +24,9 @@ def get_expected_token() -> str:
         APP_PASSCODE.strip().encode("utf-8"),
         hashlib.sha256
     ).hexdigest()
+
+
+create_session_token = get_expected_token
 
 
 def verify_session_cookie(cookie_val: Optional[str]) -> bool:
@@ -56,8 +60,14 @@ async def require_auth_api(request: Request):
 
 
 def get_active_profile(request: Request) -> str:
-    """Reads profile identifier from header or query param, falling back to default."""
+    """Reads profile identifier from header, cookie, or query param, falling back to default."""
     header_user = request.headers.get("X-Apartment-User")
     if header_user in ALLOWED_USERS:
         return header_user
+    cookie_user = request.cookies.get(USER_COOKIE_NAME)
+    if cookie_user in ALLOWED_USERS:
+        return cookie_user
+    query_user = request.query_params.get("user")
+    if query_user in ALLOWED_USERS:
+        return query_user
     return DEFAULT_USER

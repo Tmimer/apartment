@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from database import get_db
-from models.meals import Meal, MealIngredient, MealPlan
+from models.meals import Meal, MealIngredient, MealPlan, FridgeItem
 from models.groceries import GroceryItem, GROCERY_CATEGORIES
 from security import require_auth_api, get_active_profile
 
@@ -38,6 +38,11 @@ class MealPlanUpdatePayload(BaseModel):
     is_leftovers: bool = False
     is_double_batch: bool = False
     notes: Optional[str] = None
+
+
+class FridgeItemCreatePayload(BaseModel):
+    name: str = Field(..., min_length=1)
+    portions_note: Optional[str] = None
 
 
 # ===================== STARTER RECIPES SEEDER =====================
@@ -445,3 +450,86 @@ def export_week_ingredients_to_groceries(request: Request, db: Session = Depends
         "updated_items_count": updated_count,
         "aggregated_items": list(aggregated.values())
     }
+
+
+
+# ===================== FRIDGE & LEFTOVERS TRACKER =====================
+@meals_router.get("/api/fridge", dependencies=[Depends(require_auth_api)])
+def get_fridge_items(db: Session = Depends(get_db)):
+    """
+    Returns all items currently in the fridge with freshness calculation:
+    - Fresh (Today) [Day 0-1]
+    - Day 2
+    - Day 3
+    - Day 3+ — Eat Soon! [Urgent]
+    """
+    items = db.query(FridgeItem).order_by(FridgeItem.cooked_at.desc()).all()
+    now = datetime.datetime.utcnow()
+    res = []
+    for item in items:
+        cooked = item.cooked_at or now
+        days_in_fridge = max(0, (now - cooked).days)
+        if days_in_fridge == 0:
+            urgency_label = "Fresh (Today)"
+            urgency_level = "fresh"
+        elif days_in_fridge == 1:
+            urgency_label = "Day 2"
+            urgency_level = "fresh"
+        elif days_in_fridge == 2:
+            urgency_label = "Day 3"
+            urgency_level = "medium"
+        else:
+            urgency_label = f"Day {days_in_fridge}+ — Eat Soon!"
+            urgency_level = "urgent"
+
+        res.append({
+            "id": item.id,
+            "name": item.name,
+            "portions_note": item.portions_note,
+            "cooked_at": cooked.isoformat(),
+            "added_by": item.added_by,
+            "days_in_fridge": days_in_fridge,
+            "urgency_label": urgency_label,
+            "urgency_level": urgency_level,
+        })
+    return res
+
+
+@meals_router.post("/api/fridge", dependencies=[Depends(require_auth_api)])
+def add_fridge_item(payload: FridgeItemCreatePayload, request: Request, db: Session = Depends(get_db)):
+    """Adds a new leftover or prepped meal to the fridge."""
+    active_user = get_active_profile(request)
+    now = datetime.datetime.utcnow()
+    item = FridgeItem(
+        name=payload.name.strip(),
+        portions_note=payload.portions_note.strip() if payload.portions_note else None,
+        cooked_at=now,
+        added_by=active_user
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return {
+        "status": "ok",
+        "item": {
+            "id": item.id,
+            "name": item.name,
+            "portions_note": item.portions_note,
+            "cooked_at": item.cooked_at.isoformat(),
+            "added_by": item.added_by,
+            "days_in_fridge": 0,
+            "urgency_label": "Fresh (Today)",
+            "urgency_level": "fresh"
+        }
+    }
+
+
+@meals_router.delete("/api/fridge/{item_id}", dependencies=[Depends(require_auth_api)])
+def delete_fridge_item(item_id: int, db: Session = Depends(get_db)):
+    """Marks an item as eaten / cleared from the fridge."""
+    item = db.query(FridgeItem).filter(FridgeItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Fridge item not found")
+    db.delete(item)
+    db.commit()
+    return {"status": "ok", "message": f"Cleared '{item.name}' from the fridge"}

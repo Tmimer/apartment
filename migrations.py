@@ -28,5 +28,11 @@ def auto_migrate_schema():
                     "ALTER TABLE watering_logs ADD COLUMN IF NOT EXISTS watered_by VARCHAR(50) DEFAULT 'Tamir';"
                 ))
                 print("[+] Verified schema columns in PostgreSQL")
+
+            # Clean up uncompleted maintenance task attributions if any exist
+            try:
+                conn.execute(text("UPDATE maintenance_tasks SET last_completed_by = NULL WHERE last_completed_at IS NULL;"))
+            except Exception:
+                pass
     except Exception as e:
         print(f"[!] auto_migrate_schema warning: {e}")

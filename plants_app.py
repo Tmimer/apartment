@@ -11,14 +11,15 @@ from database import engine, SessionLocal, Base
 from models import (
     Plant, WateringLog, PushSubscription, AppConfig,
     GroceryItem, GroceryStaple,
-    Meal, MealIngredient, MealPlan,
-    MaintenanceTask, ApartmentStatusNote
+    Meal, MealIngredient, MealPlan, FridgeItem,
+    MaintenanceTask, ApartmentStatusNote,
+    DateSpot, RandomizerPreset
 )
 from security import is_authenticated, COOKIE_NAME
 from routers import (
     auth_router, health_router, plants_router,
     groceries_router, meals_router, maintenance_router,
-    status_note_router
+    status_note_router, dates_router
 )
 from routers.plants import init_plant_db, check_and_notify_due_plants
 from migrations import auto_migrate_schema
@@ -41,7 +42,7 @@ def background_notification_worker():
 
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):
-    # Initialize all SQLAlchemy tables (Plants, Groceries, Meals, Maintenance, Status Note)
+    # Initialize all SQLAlchemy tables (Plants, Groceries, Meals, Maintenance, Status Note, Dates)
     try:
         Base.metadata.create_all(bind=engine)
     except Exception as e:
@@ -56,7 +57,7 @@ async def app_lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Shared Apartment Hub",
-    description="Apartment Hub with Plants, Groceries, Meals, Maintenance, and Status for Tamir & Mikush",
+    description="Apartment Hub with Plants, Groceries, Meals, Maintenance, Dates, and Status for Tamir & Mikush",
     lifespan=app_lifespan
 )
 
@@ -82,11 +83,13 @@ PUBLIC_PATHS = [
     "/icon.svg",
     "/icon-192.png",
     "/icon-512.png",
+    "/favicon.ico",
     "/plants/manifest.json",
     "/plants/sw.js",
     "/plants/icon.svg",
     "/plants/icon-192.png",
     "/plants/icon-512.png",
+    "/plants/favicon.ico",
 ]
 
 
@@ -126,6 +129,7 @@ app.include_router(groceries_router)
 app.include_router(meals_router)
 app.include_router(maintenance_router)
 app.include_router(status_note_router)
+app.include_router(dates_router)
 
 
 # ===================== ROOT & SHELL SERVING =====================
@@ -160,6 +164,12 @@ def groceries_view(request: Request):
     return serve_hub_shell(request, default_tab="groceries")
 
 
+@app.get("/shop", response_class=HTMLResponse)
+def shop_view(request: Request):
+    """Serves the unified Apartment Hub shell focused on Groceries (Shop) tab."""
+    return serve_hub_shell(request, default_tab="groceries")
+
+
 @app.get("/meals", response_class=HTMLResponse)
 def meals_view(request: Request):
     """Serves the unified Apartment Hub shell focused on Meals tab."""
@@ -170,6 +180,18 @@ def meals_view(request: Request):
 def maintenance_view(request: Request):
     """Serves the unified Apartment Hub shell focused on Maintenance tab."""
     return serve_hub_shell(request, default_tab="maintenance")
+
+
+@app.get("/tasks", response_class=HTMLResponse)
+def tasks_view(request: Request):
+    """Serves the unified Apartment Hub shell focused on Maintenance (Tasks) tab."""
+    return serve_hub_shell(request, default_tab="maintenance")
+
+
+@app.get("/dates", response_class=HTMLResponse)
+def dates_view(request: Request):
+    """Serves the unified Apartment Hub shell focused on Dates tab."""
+    return serve_hub_shell(request, default_tab="dates")
 
 
 @app.get("/manifest.json")
@@ -202,6 +224,11 @@ def serve_root_icon_192():
 @app.get("/icon-512.png")
 def serve_root_icon_512():
     return FileResponse(os.path.join(BASE_DIR, "icon-512.png"), media_type="image/png")
+
+
+@app.get("/favicon.ico")
+def serve_root_favicon():
+    return FileResponse(os.path.join(BASE_DIR, "icon-192.png"), media_type="image/png")
 
 
 if __name__ == "__main__":
