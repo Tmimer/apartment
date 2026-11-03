@@ -36,3 +36,15 @@ def auto_migrate_schema():
                 pass
     except Exception as e:
         print(f"[!] auto_migrate_schema warning: {e}")
+
+    # Startup repair check for corrupted watering logs (self-comparison / near-zero elapsed time)
+    try:
+        from database import SessionLocal
+        from routers.plants import repair_corrupted_watering_logs
+        db = SessionLocal()
+        try:
+            repair_corrupted_watering_logs(db)
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[!] auto_migrate_schema plant repair note: {e}")

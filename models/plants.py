@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, desc
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -21,7 +21,7 @@ class Plant(Base):
         "WateringLog",
         back_populates="plant",
         cascade="all, delete-orphan",
-        order_by="WateringLog.watered_at.desc()"
+        order_by="desc(WateringLog.watered_at), desc(WateringLog.id)"
     )
 
 

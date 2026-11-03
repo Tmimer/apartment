@@ -20,22 +20,48 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 # ===================== DATABASE HELPER & INTERVAL ENGINE =====================
+def get_utc_now() -> datetime.datetime:
+    """Returns current UTC time as naive datetime for consistent DB storage and comparisons."""
+    return datetime.datetime.utcnow()
+
+
+def normalize_utc(dt: Optional[datetime.datetime]) -> Optional[datetime.datetime]:
+    """Ensures datetime is naive UTC across all database engines and payload types."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    return dt
+
+
 def recompute_plant_intervals(plant_id: int, db: Session):
-    """Recomputes raw_elapsed_hours and effective_interval_hours for all logs of a plant."""
+    """
+    Recomputes raw_elapsed_hours and effective_interval_hours for all logs of a plant.
+    Guards against near-zero interval poisoning, double-taps (< 6h), and enforces a 12h floor.
+    """
+    plant = db.query(Plant).filter(Plant.id == plant_id).first()
+    default_interval = float(plant.initial_interval_hours) if (plant and plant.initial_interval_hours) else 72.0
+    default_interval = max(12.0, default_interval)
+
     logs = (
         db.query(WateringLog)
         .filter(WateringLog.plant_id == plant_id)
-        .order_by(WateringLog.watered_at.asc())
+        .order_by(WateringLog.watered_at.asc(), WateringLog.id.asc())
         .all()
     )
     prev_log = None
+    last_valid_effective = default_interval
+
     for log in logs:
         if prev_log is None:
             log.raw_elapsed_hours = None
             log.effective_interval_hours = None
         else:
-            diff_hours = (log.watered_at - prev_log.watered_at).total_seconds() / 3600.0
-            log.raw_elapsed_hours = round(max(0.0, diff_hours), 2)
+            prev_watered = normalize_utc(prev_log.watered_at)
+            curr_watered = normalize_utc(log.watered_at)
+            diff_hours = (curr_watered - prev_watered).total_seconds() / 3600.0
+            diff_hours = max(0.0, diff_hours)
+            log.raw_elapsed_hours = round(diff_hours, 2)
 
             state = (log.soil_state or "ideal").lower().strip()
             if state == "damp":
@@ -44,9 +70,43 @@ def recompute_plant_intervals(plant_id: int, db: Session):
                 mult = 0.80
             else:
                 mult = 1.00
-            log.effective_interval_hours = round(log.raw_elapsed_hours * mult, 2)
+
+            # Guard against accidental double-taps or rapid logs (< 6.0 hours elapsed):
+            # Do NOT use tiny elapsed time to poison intervals. Inherit previous valid interval.
+            if diff_hours < 6.0:
+                log.effective_interval_hours = round(last_valid_effective, 2)
+            else:
+                computed = max(12.0, diff_hours * mult)
+                log.effective_interval_hours = round(computed, 2)
+                last_valid_effective = log.effective_interval_hours
         prev_log = log
     db.commit()
+
+
+def repair_corrupted_watering_logs(db: Session) -> int:
+    """
+    Scans for and repairs any corrupted watering_logs where raw_elapsed_hours < 1.0
+    or effective_interval_hours < 6.0 (caused by self-comparison or double-taps).
+    Recalculates intervals for all affected plants.
+    """
+    corrupted_plant_ids = [
+        row[0] for row in db.query(WateringLog.plant_id)
+        .filter(
+            (WateringLog.raw_elapsed_hours.isnot(None) & (WateringLog.raw_elapsed_hours < 1.0)) |
+            (WateringLog.effective_interval_hours.isnot(None) & (WateringLog.effective_interval_hours < 6.0))
+        )
+        .distinct()
+        .all()
+    ]
+
+    repaired_count = 0
+    for pid in corrupted_plant_ids:
+        recompute_plant_intervals(pid, db)
+        repaired_count += 1
+
+    if repaired_count > 0:
+        print(f"[+] Successfully repaired corrupted watering logs across {repaired_count} plant(s)")
+    return repaired_count
 
 
 def init_plant_db():
@@ -130,8 +190,11 @@ def init_plant_db():
             recompute_plant_intervals(p2.id, db)
             recompute_plant_intervals(p3.id, db)
             print("[+] Seeded initial starter plants successfully")
+
+        # Run startup check & repair on any corrupted watering logs
+        repair_corrupted_watering_logs(db)
     except Exception as e:
-        print(f"[!] Warning during starter seed: {e}")
+        print(f"[!] Warning during starter seed or repair: {e}")
         db.rollback()
     finally:
         db.close()
@@ -139,22 +202,34 @@ def init_plant_db():
 
 # ===================== METRIC CALCULATION ENGINE =====================
 def calculate_plant_metrics(plant: Plant, now: Optional[datetime.datetime] = None) -> dict:
-    if now is None:
-        now = datetime.datetime.utcnow()
+    now = normalize_utc(now) or get_utc_now()
 
+    # 1. Explicitly sort all logs chronologically (ASC: oldest first, newest last)
+    # Never rely on default DB or ORM order.
+    raw_logs = list(plant.watering_logs or [])
+    sorted_logs_asc = sorted(
+        raw_logs,
+        key=lambda l: (normalize_utc(l.watered_at) or datetime.datetime.min, l.id or 0)
+    )
+
+    # 2. Extract valid positive intervals from chronological logs
     intervals = [
-        l.effective_interval_hours
-        for l in plant.watering_logs
+        max(12.0, float(l.effective_interval_hours))
+        for l in sorted_logs_asc
         if l.effective_interval_hours is not None and l.effective_interval_hours > 0
     ]
 
+    initial_interval = max(12.0, float(plant.initial_interval_hours or 72.0))
+
     if not intervals:
-        baseline_interval_hours = float(plant.initial_interval_hours or 72.0)
+        baseline_interval_hours = initial_interval
     else:
-        last_10 = intervals[-10:]
+        last_10 = intervals[-10:]  # 10 most recent intervals
         baseline_interval_hours = round(sum(last_10) / len(last_10), 2)
+    baseline_interval_hours = max(12.0, baseline_interval_hours)
 
     if len(intervals) >= 3:
+        # intervals[-1] is most recent, intervals[-2] is 2nd most recent, etc.
         recent_interval_hours = round(
             0.50 * intervals[-1] + 0.30 * intervals[-2] + 0.20 * intervals[-3],
             2
@@ -168,6 +243,9 @@ def calculate_plant_metrics(plant: Plant, now: Optional[datetime.datetime] = Non
         recent_interval_hours = round(intervals[-1], 2)
     else:
         recent_interval_hours = None
+
+    if recent_interval_hours is not None:
+        recent_interval_hours = max(12.0, recent_interval_hours)
 
     if len(intervals) >= 3 and baseline_interval_hours > 0 and recent_interval_hours is not None:
         delta = ((baseline_interval_hours - recent_interval_hours) / baseline_interval_hours) * 100.0
@@ -188,14 +266,15 @@ def calculate_plant_metrics(plant: Plant, now: Optional[datetime.datetime] = Non
     predicted_interval_hours = (
         recent_interval_hours if recent_interval_hours is not None else baseline_interval_hours
     )
-    predicted_interval_hours = max(1.0, predicted_interval_hours)
+    predicted_interval_hours = max(12.0, predicted_interval_hours)
 
-    if plant.watering_logs:
-        last_log = plant.watering_logs[-1]
-        last_watered_at = last_log.watered_at
-        last_soil_state = last_log.soil_state
+    # 3. Guaranteed latest log is the last element of sorted_logs_asc
+    if sorted_logs_asc:
+        latest_log = sorted_logs_asc[-1]
+        last_watered_at = normalize_utc(latest_log.watered_at)
+        last_soil_state = latest_log.soil_state
     else:
-        last_watered_at = plant.created_at or now
+        last_watered_at = normalize_utc(plant.created_at) or now
         last_soil_state = None
 
     next_due_at = last_watered_at + datetime.timedelta(hours=predicted_interval_hours)
@@ -249,7 +328,7 @@ def calculate_plant_metrics(plant: Plant, now: Optional[datetime.datetime] = Non
         "urgency_status": urgency_status,
         "dry_down_pct": dry_down_pct,
         "due_text": due_text,
-        "logs_count": len(plant.watering_logs)
+        "logs_count": len(sorted_logs_asc)
     }
 
 
@@ -541,11 +620,19 @@ def get_plant_details(plant_id: int, db: Session = Depends(get_db)):
 
     metrics = calculate_plant_metrics(plant)
 
+    sorted_logs_desc = sorted(
+        plant.watering_logs or [],
+        key=lambda l: (normalize_utc(l.watered_at) or datetime.datetime.min, l.id or 0),
+        reverse=True
+    )
+    sorted_logs_asc = list(reversed(sorted_logs_desc))
+
     logs_data = []
-    for log in plant.watering_logs:
+    for log in sorted_logs_desc:
+        watered_dt = normalize_utc(log.watered_at)
         logs_data.append({
             "id": log.id,
-            "watered_at": log.watered_at.isoformat() if log.watered_at else None,
+            "watered_at": watered_dt.isoformat() if watered_dt else None,
             "soil_state": log.soil_state,
             "raw_elapsed_hours": log.raw_elapsed_hours,
             "raw_elapsed_days": round(log.raw_elapsed_hours / 24.0, 1) if log.raw_elapsed_hours else None,
@@ -558,12 +645,12 @@ def get_plant_details(plant_id: int, db: Session = Depends(get_db)):
     chart_points = [
         {
             "id": log.id,
-            "watered_at": log.watered_at.strftime("%b %d"),
+            "watered_at": normalize_utc(log.watered_at).strftime("%b %d"),
             "effective_hours": log.effective_interval_hours,
             "effective_days": round(log.effective_interval_hours / 24.0, 1) if log.effective_interval_hours else 0,
             "soil_state": log.soil_state
         }
-        for log in reversed(plant.watering_logs)
+        for log in sorted_logs_asc
         if log.effective_interval_hours is not None
     ]
 
@@ -615,12 +702,40 @@ def water_plant(plant_id: int, payload: WaterLogCreate, request: Request, db: Se
         raise HTTPException(status_code=404, detail="Plant not found")
 
     active_user = get_active_profile(request)
-    watered_at = payload.watered_at or datetime.datetime.utcnow()
+    watered_at = normalize_utc(payload.watered_at) if payload.watered_at else get_utc_now()
+
+    # Query previous_log BEFORE inserting the new log (prevents self-comparison)
+    previous_log = (
+        db.query(WateringLog)
+        .filter(WateringLog.plant_id == plant_id)
+        .order_by(WateringLog.watered_at.desc(), WateringLog.id.desc())
+        .first()
+    )
+
+    initial_interval = max(12.0, float(plant.initial_interval_hours or 72.0))
+    state = payload.soil_state.lower().strip()
+    mult = 1.20 if state == "damp" else (0.80 if state == "bone_dry" else 1.00)
+
+    if previous_log:
+        prev_watered = normalize_utc(previous_log.watered_at)
+        diff_hours = max(0.0, (watered_at - prev_watered).total_seconds() / 3600.0)
+        raw_elapsed = round(diff_hours, 2)
+        if diff_hours < 6.0:
+            # Rapid log / double-tap protection: inherit previous valid effective interval
+            prev_eff = previous_log.effective_interval_hours
+            effective_interval = round(float(prev_eff) if (prev_eff and prev_eff >= 12.0) else initial_interval, 2)
+        else:
+            effective_interval = round(max(12.0, diff_hours * mult), 2)
+    else:
+        raw_elapsed = None
+        effective_interval = None
 
     new_log = WateringLog(
         plant_id=plant_id,
         watered_at=watered_at,
-        soil_state=payload.soil_state.lower().strip(),
+        soil_state=state,
+        raw_elapsed_hours=raw_elapsed,
+        effective_interval_hours=effective_interval,
         notes=payload.notes.strip() if payload.notes else None,
         watered_by=active_user
     )
@@ -649,7 +764,7 @@ def edit_watering_log(log_id: int, payload: WaterLogUpdate, db: Session = Depend
     if payload.notes is not None:
         log.notes = payload.notes.strip()
     if payload.watered_at is not None:
-        log.watered_at = payload.watered_at
+        log.watered_at = normalize_utc(payload.watered_at)
 
     db.commit()
     recompute_plant_intervals(log.plant_id, db)
