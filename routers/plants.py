@@ -575,6 +575,13 @@ def serve_icon_512():
     return FileResponse(os.path.join(BASE_DIR, "icon-512.png"), media_type="image/png")
 
 
+@plants_router.get("/icon.svg")
+def serve_icon_svg():
+    response = FileResponse(os.path.join(BASE_DIR, "icon.svg"), media_type="image/svg+xml")
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
+
+
 @plants_router.get("/api/list")
 def list_plants(db: Session = Depends(get_db)):
     """Returns all plants with computed drinking velocity metrics and summary counts."""
