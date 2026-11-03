@@ -311,10 +311,10 @@
       border-top: 1px solid var(--card-border);
       display: flex;
       justify-content: space-around;
-      align-items: center;
+      align-items: stretch;
       z-index: 100;
-      padding-top: 8px;
-      padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+      padding-top: 0;
+      padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
     }
 
     .nav-tab {
@@ -327,11 +327,11 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 2px;
+      gap: 3px;
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
-      padding: 2px 0;
+      padding: 9px 0 4px 0;
       font-size: 11px;
       line-height: 1.2;
       text-align: center;
@@ -366,12 +366,12 @@
       content: '';
       position: absolute;
       top: 0;
-      left: 20%;
-      right: 20%;
+      left: 18%;
+      right: 18%;
       height: 3px;
       background: var(--accent);
       border-radius: 0 0 3px 3px;
-      box-shadow: 0 1px 8px var(--accent-glow);
+      box-shadow: 0 2px 8px var(--accent-glow);
     }
 
     /* 3D Coin Flip Styles */
