@@ -132,6 +132,15 @@ class DateSpotCreatePayload(BaseModel):
     highlight_notes: Optional[str] = None
 
 
+class DateSpotUpdatePayload(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    location_area: Optional[str] = None
+    vibe_tags: Optional[str] = None
+    status: Optional[str] = None
+    highlight_notes: Optional[str] = None
+
+
 class DateSpotReviewPayload(BaseModel):
     verdict: Optional[str] = None  # "loved", "okay", "skip", or None
     highlight_notes: Optional[str] = None
@@ -194,11 +203,16 @@ def create_date_spot(payload: DateSpotCreatePayload, request: Request, db: Sessi
     now = datetime.datetime.utcnow()
     is_visited = (payload.status == "visited")
 
+    cleaned_vibes = None
+    if payload.vibe_tags:
+        cleaned_list = [t.strip().lstrip('#').strip() for t in payload.vibe_tags.split(',') if t.strip().lstrip('#').strip()]
+        cleaned_vibes = ",".join(cleaned_list) if cleaned_list else None
+
     new_spot = DateSpot(
         name=payload.name.strip(),
         category=payload.category.strip() if payload.category else "Food & Drinks",
         location_area=payload.location_area.strip() if payload.location_area else None,
-        vibe_tags=payload.vibe_tags.strip() if payload.vibe_tags else None,
+        vibe_tags=cleaned_vibes,
         status="visited" if is_visited else "wishlist",
         highlight_notes=payload.highlight_notes.strip() if payload.highlight_notes else None,
         added_by=active_user,
@@ -210,6 +224,58 @@ def create_date_spot(payload: DateSpotCreatePayload, request: Request, db: Sessi
     db.refresh(new_spot)
 
     return {"status": "ok", "spot": format_spot_dict(new_spot)}
+
+
+@dates_router.put("/api/spots/{spot_id}", dependencies=[Depends(require_auth_api)])
+@dates_router.patch("/api/spots/{spot_id}", dependencies=[Depends(require_auth_api)])
+def update_date_spot(
+    spot_id: int,
+    payload: DateSpotUpdatePayload,
+    db: Session = Depends(get_db)
+):
+    """
+    Updates an existing date spot's details:
+    - name
+    - category
+    - location_area
+    - vibe_tags / hashtags (cleans leading # symbols)
+    - status ('wishlist' vs 'visited')
+    - highlight_notes
+    """
+    spot = db.query(DateSpot).filter(DateSpot.id == spot_id).first()
+    if not spot:
+        raise HTTPException(status_code=404, detail="Date spot not found")
+
+    if payload.name is not None and payload.name.strip():
+        spot.name = payload.name.strip()
+    if payload.category is not None and payload.category.strip():
+        spot.category = payload.category.strip()
+    if payload.location_area is not None:
+        spot.location_area = payload.location_area.strip() if payload.location_area.strip() else None
+    if payload.vibe_tags is not None:
+        cleaned_tags = [
+            t.strip().lstrip('#').strip()
+            for t in payload.vibe_tags.split(',')
+            if t.strip().lstrip('#').strip()
+        ]
+        spot.vibe_tags = ",".join(cleaned_tags) if cleaned_tags else None
+    if payload.status is not None and payload.status.strip():
+        st = payload.status.strip().lower()
+        if st in ("wishlist", "visited"):
+            spot.status = st
+            if st == "visited" and not spot.last_visited_at:
+                spot.last_visited_at = datetime.datetime.utcnow()
+    if payload.highlight_notes is not None:
+        spot.highlight_notes = payload.highlight_notes.strip() if payload.highlight_notes.strip() else None
+
+    db.commit()
+    db.refresh(spot)
+
+    return {
+        "status": "ok",
+        "message": f"Updated '{spot.name}'",
+        "spot": format_spot_dict(spot)
+    }
 
 
 @dates_router.post("/api/spots/{spot_id}/review", dependencies=[Depends(require_auth_api)])

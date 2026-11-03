@@ -2237,8 +2237,19 @@
           <input type="text" id="date-input-area" class="form-control" placeholder="e.g. Old Town, Promenade, Dizengoff">
         </div>
         <div class="form-group">
-          <label>Vibe Tags (comma separated)</label>
+          <label>Hashtags &amp; Vibes (comma separated)</label>
           <input type="text" id="date-input-vibes" class="form-control" placeholder="e.g. cozy, casual, wine, gelato">
+          <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:6px;">
+            <span style="font-size:0.7rem; color:var(--text-dim); align-self:center;">Quick add:</span>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('date-input-vibes', 'cozy')">#cozy</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('date-input-vibes', 'romantic')">#romantic</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('date-input-vibes', 'dessert')">#dessert</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('date-input-vibes', 'wine')">#wine</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('date-input-vibes', 'cocktails')">#cocktails</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('date-input-vibes', 'casual')">#casual</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('date-input-vibes', 'sunset')">#sunset</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('date-input-vibes', 'fancy')">#fancy</button>
+          </div>
         </div>
         <div class="form-group">
           <label>Status</label>
@@ -2255,6 +2266,68 @@
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeModal('add-date-spot-modal')">Cancel</button>
         <button class="btn-primary" onclick="submitAddDateSpot()">Save Spot</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── EDIT DATE SPOT MODAL ── -->
+  <div class="modal-overlay" id="edit-date-spot-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">✏️ Edit Date Spot</div>
+        <button class="btn-close-modal" onclick="closeModal('edit-date-spot-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-date-spot-id">
+        <div class="form-group">
+          <label>Place / Idea Name</label>
+          <input type="text" id="edit-date-name" class="form-control" placeholder="e.g. Mina Gelateria">
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="edit-date-category" class="form-control">
+            <option value="Food & Drinks">Food &amp; Drinks</option>
+            <option value="Coffee & Dessert">Coffee &amp; Dessert</option>
+            <option value="Activity">Activity</option>
+            <option value="Outdoors / Trip">Outdoors / Trip</option>
+            <option value="At Home / Cozy">At Home / Cozy</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Area / Location</label>
+          <input type="text" id="edit-date-area" class="form-control" placeholder="e.g. Old Town, Promenade, Dizengoff">
+        </div>
+        <div class="form-group">
+          <label>Hashtags &amp; Vibes (comma separated)</label>
+          <input type="text" id="edit-date-vibes" class="form-control" placeholder="e.g. cozy, casual, wine, gelato">
+          <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:6px;">
+            <span style="font-size:0.7rem; color:var(--text-dim); align-self:center;">Quick add:</span>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('edit-date-vibes', 'cozy')">#cozy</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('edit-date-vibes', 'romantic')">#romantic</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('edit-date-vibes', 'dessert')">#dessert</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('edit-date-vibes', 'wine')">#wine</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('edit-date-vibes', 'cocktails')">#cocktails</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('edit-date-vibes', 'casual')">#casual</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('edit-date-vibes', 'sunset')">#sunset</button>
+            <button type="button" class="loc-pill" style="font-size:0.68rem; padding:2px 8px;" onclick="appendHashtag('edit-date-vibes', 'fancy')">#fancy</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="edit-date-status" class="form-control">
+            <option value="wishlist">✨ Wishlist (Want to try)</option>
+            <option value="visited">❤️ Visited</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Highlights / Notes</label>
+          <textarea id="edit-date-notes" class="form-control" rows="2" placeholder="e.g. Must order pistachio, best table by the window"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('edit-date-spot-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitEditDateSpot()">Save Changes</button>
       </div>
     </div>
   </div>
@@ -4733,17 +4806,31 @@
           `<span style="font-size:0.68rem; color:var(--sky); background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.25); border-radius:var(--radius-pill); padding:2px 7px;">#${escapeHtml(v)}</span>`
         ).join(' ');
 
+        const tagsContainer = `
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:6px;">
+            ${vibePills}
+            <button 
+              type="button" 
+              onclick="quickAddHashtagPrompt(${s.id})" 
+              title="Add hashtag to this place"
+              style="background:transparent; border:1px dashed rgba(56,189,248,0.45); color:var(--sky); border-radius:var(--radius-pill); font-size:0.68rem; padding:2px 8px; cursor:pointer; line-height:1.2;"
+            >
+              + #tag
+            </button>
+          </div>
+        `;
+
         return `
           <div class="plant-card" style="padding:14px; border-color:${isMutual ? 'rgba(236,72,153,0.45)' : 'var(--card-border)'}; box-shadow:${isMutual ? '0 4px 18px rgba(236,72,153,0.15)' : 'none'};">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-              <div>
+              <div style="flex:1; min-width:0;">
                 <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                   <span style="font-weight:800; font-size:1rem; color:var(--text-main);">${escapeHtml(s.name)}</span>
                   <span class="location-badge" style="font-size:0.68rem;">${escapeHtml(s.category)}</span>
                   ${s.location_area ? `<span style="font-size:0.7rem; color:var(--text-dim); background:rgba(255,255,255,0.05); padding:1px 6px; border-radius:var(--radius-pill);">📍 ${escapeHtml(s.location_area)}</span>` : ''}
                   ${isMutual ? `<span style="font-size:0.68rem; background:linear-gradient(135deg, #ec4899, #f43f5e); color:#fff; font-weight:800; padding:2px 8px; border-radius:var(--radius-pill); box-shadow:0 2px 8px rgba(236,72,153,0.4);">💖 MUTUAL FAVORITE</span>` : ''}
                 </div>
-                ${vibePills ? `<div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">${vibePills}</div>` : ''}
+                ${tagsContainer}
               </div>
               <span class="urgency-badge ${isVisited ? 'badge-good' : 'badge-due'}" style="font-size:0.68rem; flex-shrink:0;">
                 ${isVisited ? 'Visited' : 'Wishlist'}
@@ -4769,7 +4856,15 @@
                 onclick="openReviewDateSpotModal(${s.id})" 
                 style="flex:1; padding:7px 10px; font-size:0.78rem; border-color:var(--accent); color:var(--accent);"
               >
-                ⭐ Rate / Review (${currentProfile})
+                ⭐ Rate (${currentProfile})
+              </button>
+              <button 
+                class="btn-secondary" 
+                onclick="openEditDateSpotModal(${s.id})" 
+                title="Edit place details & hashtags"
+                style="padding:7px 12px; font-size:0.78rem;"
+              >
+                ✏️ Edit
               </button>
               <button 
                 class="btn-log-action" 
@@ -4824,6 +4919,106 @@
         if (!res.ok) throw new Error('Failed to save date spot');
         closeModal('add-date-spot-modal');
         showToast(`✨ Saved "${name}" to the Date Vault`);
+        loadDateSpots();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+
+    function appendHashtag(inputId, tag) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      let current = input.value.trim();
+      const cleanTag = tag.replace(/^#+/, '').trim();
+      if (!current) {
+        input.value = cleanTag;
+      } else {
+        const parts = current.split(',').map(p => p.trim().replace(/^#+/, ''));
+        if (!parts.includes(cleanTag)) {
+          input.value = current + ', ' + cleanTag;
+        }
+      }
+      input.focus();
+    }
+
+    function quickAddHashtagPrompt(spotId) {
+      const spot = dateSpots.find(s => s.id === spotId);
+      if (!spot) return;
+      const tag = prompt(`Add hashtag to "${spot.name}" (e.g. cozy, sunset, gelato):`);
+      if (!tag || !tag.trim()) return;
+      const cleanTag = tag.trim().replace(/^#+/, '').trim();
+      if (!cleanTag) return;
+
+      const existingTags = spot.vibe_tags || [];
+      if (existingTags.includes(cleanTag)) {
+        showToast(`Already has #${cleanTag}`);
+        return;
+      }
+      const newTags = [...existingTags, cleanTag].join(', ');
+      updateSpotHashtags(spotId, newTags);
+    }
+
+    async function updateSpotHashtags(spotId, newVibesString) {
+      try {
+        const res = await fetch(`/dates/api/spots/${spotId}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ vibe_tags: newVibesString })
+        });
+        if (!res.ok) throw new Error('Failed to update hashtags');
+        showToast('✨ Updated hashtags!');
+        loadDateSpots();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    function openEditDateSpotModal(spotId) {
+      const spot = dateSpots.find(s => s.id === spotId);
+      if (!spot) return;
+
+      document.getElementById('edit-date-spot-id').value = spot.id;
+      document.getElementById('edit-date-name').value = spot.name || '';
+      document.getElementById('edit-date-category').value = spot.category || 'Food & Drinks';
+      document.getElementById('edit-date-area').value = spot.location_area || '';
+      document.getElementById('edit-date-vibes').value = spot.raw_vibe_tags || (spot.vibe_tags ? spot.vibe_tags.join(', ') : '');
+      document.getElementById('edit-date-status').value = spot.status || 'wishlist';
+      document.getElementById('edit-date-notes').value = spot.highlight_notes || '';
+
+      openModal('edit-date-spot-modal');
+      setTimeout(() => document.getElementById('edit-date-vibes').focus(), 150);
+    }
+
+    async function submitEditDateSpot() {
+      const spotId = document.getElementById('edit-date-spot-id').value;
+      const name = document.getElementById('edit-date-name').value.trim();
+      if (!name) {
+        alert('Please enter a place or idea name');
+        return;
+      }
+      const category = document.getElementById('edit-date-category').value;
+      const area = document.getElementById('edit-date-area').value.trim();
+      const vibes = document.getElementById('edit-date-vibes').value.trim();
+      const status = document.getElementById('edit-date-status').value;
+      const notes = document.getElementById('edit-date-notes').value.trim();
+
+      try {
+        const res = await fetch(`/dates/api/spots/${spotId}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            name: name,
+            category: category,
+            location_area: area || null,
+            vibe_tags: vibes || null,
+            status: status,
+            highlight_notes: notes || null
+          })
+        });
+        if (!res.ok) throw new Error('Failed to update date spot');
+        closeModal('edit-date-spot-modal');
+        showToast(`✨ Updated "${name}"!`);
         loadDateSpots();
       } catch (err) {
         alert('Error: ' + err.message);
