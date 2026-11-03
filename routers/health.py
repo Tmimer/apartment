@@ -21,3 +21,33 @@ def healthcheck():
         "database_url_prefix": env_preview,
         "db_error": str(db_connection_error)
     }
+
+
+@health_router.get("/health/audit-logs")
+def audit_watering_logs():
+    """Diagnostic check to verify database cleanliness directly in production."""
+    from database import SessionLocal
+    from models.plants import WateringLog
+    db = SessionLocal()
+    try:
+        corrupted = db.query(WateringLog).filter(
+            (WateringLog.raw_elapsed_hours.isnot(None) & (WateringLog.raw_elapsed_hours < 1.0)) |
+            (WateringLog.effective_interval_hours.isnot(None) & (WateringLog.effective_interval_hours < 6.0))
+        ).all()
+        return {
+            "status": "clean" if not corrupted else "corrupted_found",
+            "corrupted_count": len(corrupted),
+            "message": "Database is clean - no corrupted logs found." if not corrupted else f"Found {len(corrupted)} corrupted log(s)",
+            "corrupted_rows": [
+                {
+                    "id": c.id,
+                    "plant_id": c.plant_id,
+                    "watered_at": c.watered_at.isoformat() if c.watered_at else None,
+                    "raw_elapsed_hours": c.raw_elapsed_hours,
+                    "effective_interval_hours": c.effective_interval_hours
+                }
+                for c in corrupted
+            ]
+        }
+    finally:
+        db.close()

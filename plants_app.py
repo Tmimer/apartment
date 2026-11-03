@@ -75,6 +75,7 @@ app.add_middleware(
 PUBLIC_PATHS = [
     "/health",
     "/healthz",
+    "/health/audit-logs",
     "/login",
     "/api/auth/login",
     "/api/auth/status",

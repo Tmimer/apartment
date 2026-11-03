@@ -87,22 +87,38 @@ def repair_corrupted_watering_logs(db: Session) -> int:
     """
     Scans for and repairs any corrupted watering_logs where raw_elapsed_hours < 1.0
     or effective_interval_hours < 6.0 (caused by self-comparison or double-taps).
-    Recalculates intervals for all affected plants.
+    Deletes rapid-fire duplicates (< 1.0h) and recalculates intervals for all affected plants.
     """
-    corrupted_plant_ids = [
-        row[0] for row in db.query(WateringLog.plant_id)
+    corrupted_logs = (
+        db.query(WateringLog)
         .filter(
             (WateringLog.raw_elapsed_hours.isnot(None) & (WateringLog.raw_elapsed_hours < 1.0)) |
             (WateringLog.effective_interval_hours.isnot(None) & (WateringLog.effective_interval_hours < 6.0))
         )
-        .distinct()
         .all()
-    ]
+    )
 
-    repaired_count = 0
-    for pid in corrupted_plant_ids:
+    if not corrupted_logs:
+        return 0
+
+    affected_plant_ids = set()
+    cleaned = 0
+    for log in corrupted_logs:
+        affected_plant_ids.add(log.plant_id)
+        if log.raw_elapsed_hours is not None and log.raw_elapsed_hours < 1.0:
+            db.delete(log)
+            cleaned += 1
+        else:
+            cleaned += 1
+
+    db.commit()
+
+    for pid in affected_plant_ids:
         recompute_plant_intervals(pid, db)
-        repaired_count += 1
+
+    db.commit()
+    print(f"[+] Successfully repaired and cleaned {cleaned} corrupted watering log(s) across {len(affected_plant_ids)} plant(s)")
+    return cleaned
 
     if repaired_count > 0:
         print(f"[+] Successfully repaired corrupted watering logs across {repaired_count} plant(s)")
