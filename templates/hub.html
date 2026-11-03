@@ -376,30 +376,37 @@
 
     /* 3D Coin Flip Styles */
     .decider-coin {
+      -webkit-transform-style: preserve-3d;
       transform-style: preserve-3d;
       transition: transform 2.2s cubic-bezier(0.2, 0.8, 0.3, 1.0);
+      will-change: transform;
     }
     .coin-face {
       position: absolute;
       width: 100%;
       height: 100%;
       border-radius: 50%;
+      -webkit-backface-visibility: hidden;
       backface-visibility: hidden;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       user-select: none;
+      -webkit-user-select: none;
     }
     .coin-face-tamir {
       background: linear-gradient(135deg, #0f172a, #1e293b);
       border: 3px solid #10b981;
       box-shadow: 0 6px 18px rgba(16,185,129,0.35);
+      -webkit-transform: rotateY(0deg);
+      transform: rotateY(0deg);
     }
     .coin-face-mikush {
       background: linear-gradient(135deg, #2a1120, #3b1730);
       border: 3px solid #ec4899;
       box-shadow: 0 6px 18px rgba(236,72,153,0.35);
+      -webkit-transform: rotateY(180deg);
       transform: rotateY(180deg);
     }
 
@@ -5011,8 +5018,18 @@
       btn.disabled = true;
       banner.innerText = 'Flipping... 🪙';
 
+      // 50/50 Random choice: 0 deg = Tamir, 180 deg = Mikush
       const winner = Math.random() < 0.5 ? 'Tamir' : 'Mikush';
-      deciderCoinAngle += 1800 + (winner === 'Mikush' ? 180 : 0);
+      const targetMod = (winner === 'Mikush') ? 180 : 0;
+
+      // Current resting orientation normalized to [0, 360)
+      const currentMod = ((deciderCoinAngle % 360) + 360) % 360;
+
+      // Difference needed to reach targetMod in the forward direction
+      const diff = (targetMod - currentMod + 360) % 360;
+
+      // Spin forward at least 5 full rotations (1800 deg) plus the exact alignment diff
+      deciderCoinAngle += 1800 + diff;
       coin.style.transform = `rotateY(${deciderCoinAngle}deg)`;
 
       setTimeout(() => {
