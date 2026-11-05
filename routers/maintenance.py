@@ -96,10 +96,14 @@ class MaintenanceTaskUpdatePayload(BaseModel):
 @maintenance_router.get("/api/tasks", dependencies=[Depends(require_auth_api)])
 def get_maintenance_tasks(db: Session = Depends(get_db)):
     """
-    Returns all maintenance tasks with safe urgency status:
+    Returns all maintenance tasks with safe urgency status and tiered sorting:
     - Never completed tasks show days_elapsed since creation (or 0) without fake attribution.
     - Completed tasks show days_elapsed since last_completed_at.
-    - Sorted with overdue and due soon tasks first.
+    - Tiered sorting:
+        1. OVERDUE (most overdue first: days_remaining ASC)
+        2. DUE_SOON (closest deadline first: days_remaining ASC)
+        3. GOOD (closest deadline first: days_remaining ASC)
+        4. UNSTARTED (at bottom in neutral gray card state)
     """
     ensure_starter_tasks(db)
     cleanup_default_attributions(db)
@@ -113,20 +117,42 @@ def get_maintenance_tasks(db: Session = Depends(get_db)):
 
         if is_completed:
             reference_date = t.last_completed_at
+            days_elapsed = max(0, (now - reference_date).days)
+            days_remaining = interval - days_elapsed
+            progress_pct = min(100, max(0, round((days_elapsed / interval) * 100)))
+            due_date = reference_date + datetime.timedelta(days=interval)
+
+            # Short chores (interval <= 12): due within last 25% capped at 3 days max
+            # Longer chores: due within last 25% (min 2 days)
+            if interval <= 12:
+                due_soon_threshold = min(3, max(2, int(round(interval * 0.25))))
+            else:
+                due_soon_threshold = max(2, int(round(interval * 0.25)))
+
+            if days_remaining <= 0:
+                urgency_status = "OVERDUE"
+                tier = 1
+            elif days_remaining <= due_soon_threshold:
+                urgency_status = "DUE_SOON"
+                tier = 2
+            else:
+                urgency_status = "GOOD"
+                tier = 3
         else:
             reference_date = t.created_at or now
+            days_elapsed = max(0, (now - reference_date).days)
+            days_remaining = interval - days_elapsed
+            due_date = reference_date + datetime.timedelta(days=interval)
 
-        days_elapsed = max(0, (now - reference_date).days)
-        days_remaining = interval - days_elapsed
-        progress_pct = min(100, round((days_elapsed / interval) * 100))
-        due_date = reference_date + datetime.timedelta(days=interval)
-
-        if days_remaining < 0:
-            urgency = "OVERDUE"
-        elif days_remaining <= 3 or progress_pct >= 75:
-            urgency = "DUE_SOON"
-        else:
-            urgency = "GOOD"
+            if days_remaining <= 0:
+                # Past interval from created date without ever being logged
+                urgency_status = "OVERDUE"
+                tier = 1
+                progress_pct = 100
+            else:
+                urgency_status = "UNSTARTED"
+                tier = 4
+                progress_pct = 0
 
         task_list.append({
             "id": t.id,
@@ -141,19 +167,28 @@ def get_maintenance_tasks(db: Session = Depends(get_db)):
             "days_remaining": days_remaining,
             "due_date": due_date.isoformat(),
             "progress_pct": progress_pct,
-            "urgency": urgency,
+            "urgency": urgency_status,
+            "urgency_status": urgency_status,
+            "status_key": urgency_status.lower(),
+            "_tier": tier
         })
 
-    # Sort ascending by due date (closest due date first):
-    # Negative days_remaining (overdue) appear at the very top (most overdue first),
-    # followed by tasks due today (0), due tomorrow (1), and tasks due further out.
-    task_list.sort(key=lambda x: (x["days_remaining"], x["interval_days"], x["title"].lower()))
+    # Tiered sorting:
+    # 1. OVERDUE (most overdue first: days_remaining ASC)
+    # 2. DUE_SOON (closest deadline first: days_remaining ASC)
+    # 3. GOOD (closest deadline first: days_remaining ASC)
+    # 4. UNSTARTED (at bottom in neutral gray card state)
+    task_list.sort(key=lambda x: (x["_tier"], x["days_remaining"], x["interval_days"], x["title"].lower()))
+    for t in task_list:
+        del t["_tier"]
 
     return {
         "tasks": task_list,
         "total": len(task_list),
-        "overdue_count": sum(1 for t in task_list if t["urgency"] == "OVERDUE"),
-        "due_soon_count": sum(1 for t in task_list if t["urgency"] == "DUE_SOON")
+        "overdue_count": sum(1 for t in task_list if t["urgency_status"] == "OVERDUE"),
+        "due_soon_count": sum(1 for t in task_list if t["urgency_status"] == "DUE_SOON"),
+        "good_count": sum(1 for t in task_list if t["urgency_status"] == "GOOD"),
+        "unstarted_count": sum(1 for t in task_list if t["urgency_status"] == "UNSTARTED"),
     }
 
 
@@ -172,14 +207,27 @@ def complete_maintenance_task(task_id: int, request: Request, db: Session = Depe
     db.commit()
     db.refresh(task)
 
+    due_date = now + datetime.timedelta(days=task.interval_days)
+
     return {
         "status": "ok",
         "message": f"'{task.title}' marked as completed by {active_user}!",
         "task": {
             "id": task.id,
             "title": task.title,
+            "category": task.category,
+            "interval_days": task.interval_days,
             "last_completed_at": task.last_completed_at.isoformat(),
-            "last_completed_by": task.last_completed_by
+            "last_completed_by": task.last_completed_by,
+            "is_completed": True,
+            "notes": task.notes,
+            "days_elapsed": 0,
+            "days_remaining": task.interval_days,
+            "due_date": due_date.isoformat(),
+            "progress_pct": 0,
+            "urgency": "GOOD",
+            "urgency_status": "GOOD",
+            "status_key": "good"
         }
     }
 
@@ -191,10 +239,14 @@ def reset_maintenance_task(task_id: int, db: Session = Depends(get_db)):
     if not task:
         raise HTTPException(status_code=404, detail="Maintenance task not found")
 
+    now = datetime.datetime.utcnow()
     task.last_completed_at = None
     task.last_completed_by = None
+    task.created_at = now
     db.commit()
     db.refresh(task)
+
+    due_date = now + datetime.timedelta(days=task.interval_days)
 
     return {
         "status": "ok",
@@ -202,8 +254,19 @@ def reset_maintenance_task(task_id: int, db: Session = Depends(get_db)):
         "task": {
             "id": task.id,
             "title": task.title,
+            "category": task.category,
+            "interval_days": task.interval_days,
             "last_completed_at": None,
-            "last_completed_by": None
+            "last_completed_by": None,
+            "is_completed": False,
+            "notes": task.notes,
+            "days_elapsed": 0,
+            "days_remaining": task.interval_days,
+            "due_date": due_date.isoformat(),
+            "progress_pct": 0,
+            "urgency": "UNSTARTED",
+            "urgency_status": "UNSTARTED",
+            "status_key": "unstarted"
         }
     }
 

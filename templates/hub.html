@@ -622,6 +622,64 @@
       border: 1px solid rgba(16, 185, 129, 0.3);
     }
     .urgency-badge.good .dot { background: #10b981; }
+    .urgency-badge.unstarted, .badge-unstarted {
+      background: rgba(148, 163, 184, 0.14);
+      color: #cbd5e1;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+    .urgency-badge.unstarted .dot { background: #94a3b8; }
+
+    .plant-card.unstarted {
+      border-color: rgba(148, 163, 184, 0.25);
+      background: linear-gradient(180deg, rgba(148, 163, 184, 0.05) 0%, var(--card-bg) 40%);
+    }
+
+    /* ── INTERACTIVE TASK FILTER CHIPS ── */
+    .task-filter-chips-bar::-webkit-scrollbar { display: none; }
+    .task-filter-chip {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 7px 13px;
+      border-radius: var(--radius-full);
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      user-select: none;
+      font-family: inherit;
+    }
+    .task-filter-chip:hover {
+      border-color: var(--text-dim);
+      color: var(--text-main);
+    }
+    .task-filter-chip.active {
+      background: var(--accent-glow);
+      border-color: var(--accent);
+      color: var(--accent-contrast, #ffffff);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .task-filter-chip .chip-count {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+    }
+    .task-filter-chip.active .chip-count {
+      background: rgba(255, 255, 255, 0.22);
+      color: #ffffff;
+    }
+    .task-filter-chip:not(.active) .count-overdue { color: var(--rose); }
+    .task-filter-chip:not(.active) .count-due-soon { color: var(--amber); }
+    .task-filter-chip:not(.active) .count-good { color: var(--emerald); }
+    .task-filter-chip:not(.active) .count-unstarted { color: var(--text-dim); }
 
     .meta-pills {
       display: flex;
@@ -1633,20 +1691,28 @@
           </button>
         </div>
 
-        <!-- Quick Stats Grid -->
-        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:14px;">
-          <div style="background:rgba(15, 23, 42, 0.6); padding:10px 8px; border-radius:var(--radius-md); text-align:center; border:1px solid var(--card-border);">
-            <div style="font-size:1.25rem; font-weight:800; color:var(--rose);" id="stat-tasks-overdue">0</div>
-            <div style="font-size:0.68rem; color:var(--text-dim); text-transform:uppercase; font-weight:600;">Overdue</div>
-          </div>
-          <div style="background:rgba(15, 23, 42, 0.6); padding:10px 8px; border-radius:var(--radius-md); text-align:center; border:1px solid var(--card-border);">
-            <div style="font-size:1.25rem; font-weight:800; color:var(--amber);" id="stat-tasks-due-soon">0</div>
-            <div style="font-size:0.68rem; color:var(--text-dim); text-transform:uppercase; font-weight:600;">Due Soon</div>
-          </div>
-          <div style="background:rgba(15, 23, 42, 0.6); padding:10px 8px; border-radius:var(--radius-md); text-align:center; border:1px solid var(--card-border);">
-            <div style="font-size:1.25rem; font-weight:800; color:var(--emerald);" id="stat-tasks-total">0</div>
-            <div style="font-size:0.68rem; color:var(--text-dim); text-transform:uppercase; font-weight:600;">Total Active</div>
-          </div>
+        <!-- Interactive Filter Chips -->
+        <div class="task-filter-chips-bar" style="display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding:4px 2px; margin-top:14px; scrollbar-width:none;">
+          <button type="button" class="task-filter-chip active" id="chip-task-all" onclick="setTaskStatusFilter('all')">
+            <span>All</span>
+            <span class="chip-count" id="stat-tasks-total">0</span>
+          </button>
+          <button type="button" class="task-filter-chip" id="chip-task-overdue" onclick="setTaskStatusFilter('overdue')">
+            <span>⚠️ Overdue</span>
+            <span class="chip-count count-overdue" id="stat-tasks-overdue">0</span>
+          </button>
+          <button type="button" class="task-filter-chip" id="chip-task-due_soon" onclick="setTaskStatusFilter('due_soon')">
+            <span>⏳ Due Soon</span>
+            <span class="chip-count count-due-soon" id="stat-tasks-due-soon">0</span>
+          </button>
+          <button type="button" class="task-filter-chip" id="chip-task-good" onclick="setTaskStatusFilter('good')">
+            <span>✅ On Track</span>
+            <span class="chip-count count-good" id="stat-tasks-good">0</span>
+          </button>
+          <button type="button" class="task-filter-chip" id="chip-task-unstarted" onclick="setTaskStatusFilter('unstarted')" style="display:none;">
+            <span>⚪ Unstarted</span>
+            <span class="chip-count count-unstarted" id="stat-tasks-unstarted">0</span>
+          </button>
         </div>
       </div>
 
@@ -4323,6 +4389,99 @@
     // ══════════════════════════════════════════════════════════
     let maintenanceTasks = [];
     let selectedTaskCategory = 'All';
+    let selectedTaskStatus = 'all'; // 'all', 'overdue', 'due_soon', 'good', 'unstarted'
+
+    function getTaskTier(t) {
+      const status = (t.status_key || (t.urgency ? t.urgency.toLowerCase() : 'good')).toLowerCase();
+      if (status === 'overdue') return 1;
+      if (status === 'due_soon') return 2;
+      if (status === 'good') return 3;
+      if (status === 'unstarted') return 4;
+      return 3;
+    }
+
+    function sortMaintenanceTasksList(tasks) {
+      return tasks.sort((a, b) => {
+        const tierA = getTaskTier(a);
+        const tierB = getTaskTier(b);
+        if (tierA !== tierB) return tierA - tierB;
+        if (a.days_remaining !== b.days_remaining) return a.days_remaining - b.days_remaining;
+        if (a.interval_days !== b.interval_days) return a.interval_days - b.interval_days;
+        return (a.title || '').localeCompare(b.title || '');
+      });
+    }
+
+    function setTaskStatusFilter(status) {
+      if (selectedTaskStatus === status) {
+        selectedTaskStatus = 'all';
+      } else {
+        selectedTaskStatus = status;
+      }
+      updateTaskStatusChips();
+      renderMaintenanceTasks();
+    }
+
+    function updateTaskStatusChips() {
+      const chips = [
+        { id: 'chip-task-all', key: 'all' },
+        { id: 'chip-task-overdue', key: 'overdue' },
+        { id: 'chip-task-due_soon', key: 'due_soon' },
+        { id: 'chip-task-good', key: 'good' },
+        { id: 'chip-task-unstarted', key: 'unstarted' },
+      ];
+      chips.forEach(c => {
+        const el = document.getElementById(c.id);
+        if (el) {
+          if (selectedTaskStatus === c.key) {
+            el.classList.add('active');
+          } else {
+            el.classList.remove('active');
+          }
+        }
+      });
+    }
+
+    function updateTaskStatusCount(statusKey, delta) {
+      let elId = null;
+      if (statusKey === 'overdue') elId = 'stat-tasks-overdue';
+      else if (statusKey === 'due_soon') elId = 'stat-tasks-due-soon';
+      else if (statusKey === 'good') elId = 'stat-tasks-good';
+      else if (statusKey === 'unstarted') elId = 'stat-tasks-unstarted';
+
+      if (elId) {
+        const el = document.getElementById(elId);
+        if (el) {
+          const cur = parseInt(el.innerText, 10) || 0;
+          el.innerText = Math.max(0, cur + delta);
+        }
+      }
+
+      if (statusKey === 'unstarted') {
+        const unstartedEl = document.getElementById('stat-tasks-unstarted');
+        const chipUnstarted = document.getElementById('chip-task-unstarted');
+        const cnt = unstartedEl ? (parseInt(unstartedEl.innerText, 10) || 0) : 0;
+        if (chipUnstarted && selectedTaskStatus !== 'unstarted') {
+          chipUnstarted.style.display = cnt > 0 ? 'inline-flex' : 'none';
+        }
+      }
+    }
+
+    function syncMaintenanceNavBadge() {
+      const overdueEl = document.getElementById('stat-tasks-overdue');
+      const dueSoonEl = document.getElementById('stat-tasks-due-soon');
+      const overdueCount = overdueEl ? (parseInt(overdueEl.innerText, 10) || 0) : 0;
+      const dueSoonCount = dueSoonEl ? (parseInt(dueSoonEl.innerText, 10) || 0) : 0;
+      const badge = document.getElementById('badge-maintenance');
+      if (badge) {
+        const urgent = overdueCount + dueSoonCount;
+        if (urgent > 0) {
+          badge.innerText = urgent;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    }
 
     async function loadMaintenanceTasks() {
       try {
@@ -4340,23 +4499,29 @@
         // Update stats
         const statOverdue = document.getElementById('stat-tasks-overdue');
         const statDueSoon = document.getElementById('stat-tasks-due-soon');
+        const statGood = document.getElementById('stat-tasks-good');
         const statTotal = document.getElementById('stat-tasks-total');
+        const statUnstarted = document.getElementById('stat-tasks-unstarted');
+        const chipUnstarted = document.getElementById('chip-task-unstarted');
+
         if (statOverdue) statOverdue.innerText = data.overdue_count || 0;
         if (statDueSoon) statDueSoon.innerText = data.due_soon_count || 0;
+        if (statGood) statGood.innerText = data.good_count || 0;
         if (statTotal) statTotal.innerText = data.total || 0;
+        if (statUnstarted) statUnstarted.innerText = data.unstarted_count || 0;
 
-        // Update bottom nav badge
-        const badge = document.getElementById('badge-maintenance');
-        const urgentCount = (data.overdue_count || 0) + (data.due_soon_count || 0);
-        if (badge) {
-          if (urgentCount > 0) {
-            badge.innerText = urgentCount;
-            badge.style.display = 'inline-block';
+        if (chipUnstarted) {
+          if ((data.unstarted_count || 0) > 0 || selectedTaskStatus === 'unstarted') {
+            chipUnstarted.style.display = 'inline-flex';
           } else {
-            badge.style.display = 'none';
+            chipUnstarted.style.display = 'none';
           }
         }
 
+        // Update bottom nav badge
+        syncMaintenanceNavBadge();
+
+        updateTaskStatusChips();
         renderMaintenanceCategories();
         renderMaintenanceTasks();
       } catch (err) {
@@ -4388,55 +4553,121 @@
       if (!listEl) return;
 
       let filtered = [...maintenanceTasks];
+
+      // 1. Filter by category
       if (selectedTaskCategory !== 'All') {
         filtered = filtered.filter(t => (t.category || 'General') === selectedTaskCategory);
       }
-      // Always sort by closest due date first (overdue < due today < due soon < due later)
-      filtered.sort((a, b) => a.days_remaining - b.days_remaining);
+
+      // 2. Filter by status
+      if (selectedTaskStatus !== 'all') {
+        filtered = filtered.filter(t => {
+          const sk = (t.status_key || (t.urgency ? t.urgency.toLowerCase() : 'good')).toLowerCase();
+          return sk === selectedTaskStatus;
+        });
+      }
+
+      // 3. Tiered sort
+      sortMaintenanceTasksList(filtered);
 
       if (tagEl) {
-        tagEl.innerText = `${filtered.length} of ${maintenanceTasks.length} task${maintenanceTasks.length === 1 ? '' : 's'}`;
+        let label = `${filtered.length} of ${maintenanceTasks.length} task${maintenanceTasks.length === 1 ? '' : 's'}`;
+        if (selectedTaskStatus !== 'all') {
+          const statusNames = { overdue: 'Overdue', due_soon: 'Due Soon', good: 'On Track', unstarted: 'Unstarted' };
+          label += ` · ${statusNames[selectedTaskStatus] || selectedTaskStatus}`;
+        }
+        tagEl.innerText = label;
       }
 
       if (filtered.length === 0) {
+        let emptyIcon = '✨';
+        let emptyTitle = 'All caught up!';
+        let emptySub = 'Everything in this category is running smoothly.';
+
+        if (selectedTaskStatus === 'overdue') {
+          emptyIcon = '🎉';
+          emptyTitle = 'Nothing overdue!';
+          emptySub = 'Nothing overdue — all caught up! 🎉';
+        } else if (selectedTaskStatus === 'due_soon') {
+          emptyIcon = '☕';
+          emptyTitle = 'No tasks due soon';
+          emptySub = 'Take a breather! Nothing needs attention in the immediate future.';
+        } else if (selectedTaskStatus === 'good') {
+          emptyIcon = '📋';
+          emptyTitle = 'No tasks on track yet';
+          emptySub = 'Complete an overdue or unstarted task to get it on track!';
+        } else if (selectedTaskStatus === 'unstarted') {
+          emptyIcon = '🚀';
+          emptyTitle = 'All tasks started!';
+          emptySub = 'Every single recurring chore has been logged at least once.';
+        } else if (selectedTaskCategory !== 'All') {
+          emptyTitle = `No tasks in ${selectedTaskCategory}`;
+          emptySub = 'Add a new task or choose another area.';
+        }
+
         listEl.innerHTML = `
-          <div style="text-align:center; padding:30px 10px; color:var(--text-muted); background:var(--card-bg); border-radius:var(--radius-lg); border:1px solid var(--card-border);">
-            <div style="font-size:2rem; margin-bottom:6px;">✨</div>
-            <div style="font-weight:700; color:var(--text-main);">All caught up!</div>
-            <div style="font-size:0.8rem; margin-top:2px;">Everything in this category is running smoothly.</div>
+          <div style="text-align:center; padding:32px 14px; color:var(--text-muted); background:var(--card-bg); border-radius:var(--radius-lg); border:1px solid var(--card-border);">
+            <div style="font-size:2.2rem; margin-bottom:8px;">${emptyIcon}</div>
+            <div style="font-weight:700; font-size:1rem; color:var(--text-main);">${escapeHtml(emptyTitle)}</div>
+            <div style="font-size:0.8rem; margin-top:4px; color:var(--text-dim);">${escapeHtml(emptySub)}</div>
+            ${selectedTaskStatus !== 'all' ? `
+              <button class="loc-pill" onclick="setTaskStatusFilter('all')" style="margin-top:14px; font-size:0.75rem; padding:6px 14px;">
+                Show All Tasks
+              </button>
+            ` : ''}
           </div>
         `;
         return;
       }
 
       listEl.innerHTML = filtered.map(t => {
-        const isOverdue = t.days_remaining < 0 || t.urgency === 'OVERDUE';
-        const isDueToday = t.days_remaining === 0;
-        const isDueSoon = !isOverdue && (t.days_remaining <= 3 || t.urgency === 'DUE_SOON');
-        
+        const statusKey = (t.status_key || (t.urgency ? t.urgency.toLowerCase() : 'good')).toLowerCase();
+        const isOverdue = statusKey === 'overdue';
+        const isDueSoon = statusKey === 'due_soon';
+        const isGood = statusKey === 'good';
+        const isUnstarted = statusKey === 'unstarted';
+
         let urgencyBadgeClass = 'badge-good';
+        let urgencyBadgeDot = 'good';
         let urgencyLabel = `Due in ${t.days_remaining}d`;
         let cardBorderColor = 'var(--card-border)';
+        let cardStatusClass = 'good';
 
         if (isOverdue) {
           urgencyBadgeClass = 'badge-overdue';
-          urgencyLabel = `${Math.abs(t.days_remaining)}d Overdue`;
-          cardBorderColor = 'rgba(244, 63, 94, 0.4)';
-        } else if (isDueToday) {
-          urgencyBadgeClass = 'badge-due';
-          urgencyLabel = 'Due Today!';
-          cardBorderColor = 'rgba(245, 158, 11, 0.5)';
+          urgencyBadgeDot = 'overdue';
+          cardStatusClass = 'overdue';
+          if (t.days_remaining < 0) {
+            urgencyLabel = `${Math.abs(t.days_remaining)}d Overdue`;
+          } else {
+            urgencyLabel = `Due Today!`;
+          }
+          cardBorderColor = 'rgba(244, 63, 94, 0.45)';
         } else if (isDueSoon) {
           urgencyBadgeClass = 'badge-due';
+          urgencyBadgeDot = 'due-today';
+          cardStatusClass = 'due-today';
           urgencyLabel = t.days_remaining === 1 ? 'Due Tomorrow' : `Due in ${t.days_remaining}d`;
-          cardBorderColor = 'rgba(245, 158, 11, 0.4)';
+          cardBorderColor = 'rgba(245, 158, 11, 0.45)';
+        } else if (isUnstarted) {
+          urgencyBadgeClass = 'badge-unstarted';
+          urgencyBadgeDot = 'unstarted';
+          cardStatusClass = 'unstarted';
+          urgencyLabel = '⚪ Not Started';
+          cardBorderColor = 'rgba(148, 163, 184, 0.25)';
+        } else {
+          // good / on track
+          urgencyBadgeClass = 'badge-good';
+          urgencyBadgeDot = 'good';
+          cardStatusClass = 'good';
+          urgencyLabel = `Due in ${t.days_remaining}d`;
+          cardBorderColor = 'var(--card-border)';
         }
 
         const dueDateFormatted = t.due_date ? new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
 
-        const isNeverCompleted = !t.is_completed || !t.last_completed_at || !t.last_completed_by;
         let lastDoneStr = '';
-        if (isNeverCompleted) {
+        if (isUnstarted || !t.is_completed || !t.last_completed_at || !t.last_completed_by) {
           lastDoneStr = '<span style="color:var(--text-dim); font-style:italic;">Not done yet — waiting for first log</span>';
         } else {
           const userPill = t.last_completed_by === 'Mikush' ?
@@ -4446,7 +4677,12 @@
         }
 
         return `
-          <div class="plant-card ${isOverdue ? 'overdue' : (isDueSoon ? 'due-today' : 'good')}" style="border-color:${cardBorderColor}; padding:14px;">
+          <div 
+            id="maintenance-card-${t.id}"
+            class="plant-card ${cardStatusClass}" 
+            data-status="${statusKey}"
+            style="border-color:${cardBorderColor}; padding:14px; transition:all 0.25s ease;"
+          >
             <div class="card-top">
               <div class="plant-title-wrap">
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -4457,17 +4693,19 @@
                   Every ${t.interval_days} days · <span style="color:var(--text-muted);">${lastDoneStr}</span>
                 </div>
               </div>
-              <span class="urgency-badge ${urgencyBadgeClass}">${urgencyLabel}</span>
+              <span class="urgency-badge ${urgencyBadgeClass}" id="task-badge-${t.id}">
+                <span class="dot ${urgencyBadgeDot}"></span> ${urgencyLabel}
+              </span>
             </div>
 
             <!-- Urgency Progress Bar -->
             <div style="margin: 10px 0 12px 0;">
               <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:var(--text-dim); margin-bottom:4px; font-family:var(--font-mono);">
-                <span>Interval: ${t.days_elapsed} / ${t.interval_days}d${dueDateFormatted ? ` · Due ${dueDateFormatted}` : ''}</span>
-                <span>${t.progress_pct}%</span>
+                <span>${isUnstarted ? `Cycle: Every ${t.interval_days}d` : `Interval: ${t.days_elapsed} / ${t.interval_days}d${dueDateFormatted ? ` · Due ${dueDateFormatted}` : ''}`}</span>
+                <span>${t.progress_pct || 0}%</span>
               </div>
               <div class="progress-bar-bg">
-                <div class="progress-bar-fill" style="width: ${t.progress_pct}%;"></div>
+                <div class="progress-bar-fill" style="width: ${t.progress_pct || 0}%; ${isUnstarted ? 'background:rgba(148,163,184,0.3);' : ''}"></div>
               </div>
             </div>
 
@@ -4509,20 +4747,74 @@
     }
 
     async function markMaintenanceDone(taskId, event) {
+      const task = maintenanceTasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const oldStatus = (task.status_key || (task.urgency ? task.urgency.toLowerCase() : 'good')).toLowerCase();
+      const newStatus = 'good';
+
+      // 1. Trigger micro-animation immediately
+      const x = event && event.clientX ? event.clientX : window.innerWidth / 2;
+      const y = event && event.clientY ? event.clientY : window.innerHeight / 2;
+      triggerSparkleBurst(x, y, currentProfile === 'Mikush');
+
+      // 2. Optimistically update task object in maintenanceTasks array
+      task.is_completed = true;
+      task.last_completed_at = new Date().toISOString();
+      task.last_completed_by = currentProfile;
+      task.days_elapsed = 0;
+      task.days_remaining = task.interval_days;
+      task.progress_pct = 0;
+      task.urgency = 'GOOD';
+      task.urgency_status = 'GOOD';
+      task.status_key = 'good';
+
+      // 3. Decrement old status counter, increment new status counter dynamically
+      if (oldStatus !== newStatus) {
+        updateTaskStatusCount(oldStatus, -1);
+        updateTaskStatusCount(newStatus, +1);
+      }
+
+      // 4. Update the card status badge immediately if card element exists
+      const cardEl = document.getElementById(`maintenance-card-${taskId}`);
+      const badgeEl = document.getElementById(`task-badge-${taskId}`);
+      if (cardEl) {
+        cardEl.setAttribute('data-status', 'good');
+        cardEl.className = 'plant-card good';
+        cardEl.style.borderColor = 'var(--card-border)';
+      }
+      if (badgeEl) {
+        badgeEl.className = 'urgency-badge badge-good';
+        badgeEl.innerHTML = `<span class="dot good"></span> Due in ${task.interval_days}d`;
+      }
+
+      // Update bottom nav badge
+      syncMaintenanceNavBadge();
+
+      showToast(`✅ '${task.title}' marked as completed by ${currentProfile}!`);
+
+      // 5. Re-sort & re-render view smoothly
+      sortMaintenanceTasksList(maintenanceTasks);
+      renderMaintenanceTasks();
+
+      // 6. Send API call in background
       try {
         const res = await fetch(`/maintenance/api/complete/${taskId}`, {
           method: 'POST',
           headers: getAuthHeaders()
         });
-        if (!res.ok) throw new Error('Failed to complete task');
+        if (!res.ok) {
+          throw new Error('Server returned HTTP ' + res.status);
+        }
         const data = await res.json();
-        const x = event && event.clientX ? event.clientX : window.innerWidth / 2;
-        const y = event && event.clientY ? event.clientY : window.innerHeight / 2;
-        triggerSparkleBurst(x, y, currentProfile === 'Mikush');
-        showToast(`✅ ${data.message}`);
-        await loadMaintenanceTasks();
+        if (data.task) {
+          Object.assign(task, data.task);
+        }
       } catch (err) {
-        alert(err.message);
+        console.error('Failed to complete maintenance task on server:', err);
+        showToast(`⚠️ Sync warning: ${err.message}`);
+        // Fallback sync
+        await loadMaintenanceTasks();
       }
     }
 
