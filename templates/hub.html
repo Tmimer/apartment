@@ -741,6 +741,28 @@
       background: var(--emerald);
       color: #042f2e;
     }
+        .btn-soil-tune {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 9px 11px;
+      border-radius: var(--radius-md);
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-soil-tune:hover, .btn-soil-tune:active {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .chart-bar.quick, .chart-bar.rain, .chart-bar.unmeasured { background: #38bdf8; }
+
     .btn-history {
       background: rgba(30, 41, 59, 0.6);
       border: 1px solid var(--card-border);
@@ -1973,9 +1995,10 @@
             <div class="form-group">
               <label>State</label>
               <select id="custom-log-state" class="form-control" style="padding:6px;">
-                <option value="ideal">Dry / Ideal (100%)</option>
-                <option value="damp">Slightly Damp (+20%)</option>
-                <option value="bone_dry">Bone Dry (-20%)</option>
+                <option value="quick" selected>🌧️ Rain / Quick Water (Keep Pace, Skip Calc)</option>
+                <option value="ideal">🎯 Dry / Ideal (100% Target)</option>
+                <option value="damp">💧 Slightly Damp (+20% adj)</option>
+                <option value="bone_dry">🥀 Bone Dry (-20% adj)</option>
               </select>
             </div>
             <div class="form-group">
@@ -3723,10 +3746,13 @@
 
             <div class="card-actions">
               <div class="action-buttons-row">
-                <button class="btn-water-now" onclick="toggleQuickTap(${plant.id})">
+                <button class="btn-water-now" onclick="submitQuickWater(${plant.id}, 'quick')" title="1-tap water now (timer resets, preserves pace, avoids scale)">
                   💧 Water Now
                 </button>
-                <button class="btn-history" onclick="openHistoryModal(${plant.id})">
+                <button class="btn-soil-tune" onclick="toggleQuickTap(${plant.id})" title="Adjust with Soil Dry-Down Scale (+20% / -20%)">
+                  ⚖️ Scale
+                </button>
+                <button class="btn-history" onclick="openHistoryModal(${plant.id})" title="Watering History">
                   📊 History
                 </button>
                 <button class="btn-history" onclick="openEditPlantModal(${plant.id})" title="Edit plant settings">
@@ -3736,7 +3762,7 @@
 
               <div class="quick-tap-panel" id="quick-tap-${plant.id}">
                 <div class="quick-tap-label">
-                  <span>How dry was the soil right now?</span>
+                  <span>Adjust learned pace with soil dry-down scale:</span>
                   <button class="btn-cancel-tap" onclick="toggleQuickTap(${plant.id})">✕ Close</button>
                 </div>
                 <div class="quick-buttons-row">
@@ -3753,7 +3779,13 @@
                     <span class="sub">-20% adj</span>
                   </button>
                 </div>
-                <input type="text" class="quick-notes-input" id="quick-note-${plant.id}" placeholder="Add optional note (e.g. Added kelp, flushed)">
+                <div style="display:flex; gap:6px; margin-top:6px;">
+                  <button class="btn-tap-state btn-tap-quick" style="flex:1; border-color:rgba(56, 189, 248, 0.4); color:#7dd3fc; background:rgba(56, 189, 248, 0.1); padding:7px 8px;" onclick="submitQuickWater(${plant.id}, 'quick')">
+                    <span>🌧️ Rain / Quick Water</span>
+                    <span class="sub">Water now without adjusting interval calculation</span>
+                  </button>
+                </div>
+                <input type="text" class="quick-notes-input" id="quick-note-${plant.id}" placeholder="Add optional note (e.g. Rained, kelp, flushed)">
               </div>
             </div>
 
@@ -3781,7 +3813,10 @@
           body: JSON.stringify({ soil_state: soilState, notes: notes })
         });
         if (!res.ok) throw new Error("Failed to log watering");
-        showToast(currentProfile === 'Mikush' ? "🌸 Watered with love!" : "💧 Logged watering!");
+        const msg = (soilState === 'quick' || soilState === 'rain' || soilState === 'unmeasured')
+          ? (currentProfile === 'Mikush' ? "🌸 Watered! (Pace preserved)" : "💧 Watered! (Pace preserved)")
+          : (currentProfile === 'Mikush' ? "🌸 Watered with love!" : "💧 Logged watering!");
+        showToast(msg);
         triggerSparkleBurst(window.innerWidth / 2, window.innerHeight / 2, currentProfile === 'Mikush');
         await fetchPlants();
       } catch (err) {
@@ -3961,9 +3996,9 @@
       }
 
       listEl.innerHTML = logs.map(log => {
-        const stateBadge = log.soil_state === 'damp' ? '💧 Damp' : (log.soil_state === 'bone_dry' ? '🥀 Bone Dry' : '🎯 Ideal');
+        const stateBadge = log.soil_state === 'damp' ? '💧 Damp' : (log.soil_state === 'bone_dry' ? '🥀 Bone Dry' : (log.soil_state === 'quick' || log.soil_state === 'rain' || log.soil_state === 'unmeasured' ? '🌧️ Quick / Rain' : '🎯 Ideal'));
         const dateStr = log.watered_at ? new Date(log.watered_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-        const intervalInfo = log.raw_elapsed_days ? `Interval: ${log.raw_elapsed_days}d` : 'Initial baseline';
+        const intervalInfo = (log.soil_state === 'quick' || log.soil_state === 'rain' || log.soil_state === 'unmeasured') ? (log.raw_elapsed_days ? `Elapsed: ${log.raw_elapsed_days}d · Pace preserved` : 'Pace preserved') : (log.raw_elapsed_days ? `Interval: ${log.raw_elapsed_days}d (Adj: ${log.effective_interval_days || log.raw_elapsed_days}d)` : 'Initial baseline');
 
         const userPill = log.watered_by === 'Mikush' ?
           `<span class="user-pill pill-mikush">🌸 Mikush</span>` :

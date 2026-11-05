@@ -64,21 +64,25 @@ def recompute_plant_intervals(plant_id: int, db: Session):
             log.raw_elapsed_hours = round(diff_hours, 2)
 
             state = (log.soil_state or "ideal").lower().strip()
-            if state == "damp":
-                mult = 1.20
-            elif state == "bone_dry":
-                mult = 0.80
-            else:
-                mult = 1.00
-
-            # Guard against accidental double-taps or rapid logs (< 6.0 hours elapsed):
-            # Do NOT use tiny elapsed time to poison intervals. Inherit previous valid interval.
-            if diff_hours < 6.0:
+            if state in ("quick", "unmeasured", "rain"):
+                # Quick watering / rain bypass: preserve existing learned pace without distortion
                 log.effective_interval_hours = round(last_valid_effective, 2)
             else:
-                computed = max(12.0, diff_hours * mult)
-                log.effective_interval_hours = round(computed, 2)
-                last_valid_effective = log.effective_interval_hours
+                if state == "damp":
+                    mult = 1.20
+                elif state == "bone_dry":
+                    mult = 0.80
+                else:
+                    mult = 1.00
+
+                # Guard against accidental double-taps or rapid logs (< 6.0 hours elapsed):
+                # Do NOT use tiny elapsed time to poison intervals. Inherit previous valid interval.
+                if diff_hours < 6.0:
+                    log.effective_interval_hours = round(last_valid_effective, 2)
+                else:
+                    computed = max(12.0, diff_hours * mult)
+                    log.effective_interval_hours = round(computed, 2)
+                    last_valid_effective = log.effective_interval_hours
         prev_log = log
     db.commit()
 
@@ -229,10 +233,13 @@ def calculate_plant_metrics(plant: Plant, now: Optional[datetime.datetime] = Non
     )
 
     # 2. Extract valid positive intervals from chronological logs
+    # Exclude quick/unmeasured/rain waterings so abnormal elapsed times (e.g. rain delays) do not pollute learned speed
     intervals = [
         max(12.0, float(l.effective_interval_hours))
         for l in sorted_logs_asc
-        if l.effective_interval_hours is not None and l.effective_interval_hours > 0
+        if l.effective_interval_hours is not None 
+        and l.effective_interval_hours > 0
+        and (l.soil_state or "").lower().strip() not in ("quick", "unmeasured", "rain")
     ]
 
     initial_interval = max(12.0, float(plant.initial_interval_hours or 72.0))
@@ -491,13 +498,13 @@ class PlantUpdate(BaseModel):
 
 
 class WaterLogCreate(BaseModel):
-    soil_state: str = Field(..., pattern="^(damp|ideal|bone_dry)$")
+    soil_state: str = Field(default="quick", pattern="^(damp|ideal|bone_dry|quick|unmeasured|rain)$")
     notes: Optional[str] = None
     watered_at: Optional[datetime.datetime] = None
 
 
 class WaterLogUpdate(BaseModel):
-    soil_state: Optional[str] = Field(None, pattern="^(damp|ideal|bone_dry)$")
+    soil_state: Optional[str] = Field(None, pattern="^(damp|ideal|bone_dry|quick|unmeasured|rain)$")
     notes: Optional[str] = None
     watered_at: Optional[datetime.datetime] = None
 
@@ -736,7 +743,7 @@ def water_plant(plant_id: int, payload: WaterLogCreate, request: Request, db: Se
     )
 
     initial_interval = max(12.0, float(plant.initial_interval_hours or 72.0))
-    state = payload.soil_state.lower().strip()
+    state = (payload.soil_state or "quick").lower().strip()
     mult = 1.20 if state == "damp" else (0.80 if state == "bone_dry" else 1.00)
 
     if previous_log:
@@ -745,6 +752,10 @@ def water_plant(plant_id: int, payload: WaterLogCreate, request: Request, db: Se
         raw_elapsed = round(diff_hours, 2)
         if diff_hours < 6.0:
             # Rapid log / double-tap protection: inherit previous valid effective interval
+            prev_eff = previous_log.effective_interval_hours
+            effective_interval = round(float(prev_eff) if (prev_eff and prev_eff >= 12.0) else initial_interval, 2)
+        elif state in ("quick", "unmeasured", "rain"):
+            # Quick / rain watering: preserve existing learned pace without calculation scale adjustment
             prev_eff = previous_log.effective_interval_hours
             effective_interval = round(float(prev_eff) if (prev_eff and prev_eff >= 12.0) else initial_interval, 2)
         else:

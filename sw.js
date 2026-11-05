@@ -1,5 +1,5 @@
 // Service Worker for Shared Apartment Hub (Tamir & Mikush)
-const CACHE_NAME = 'apartment-hub-v13';
+const CACHE_NAME = 'apartment-hub-v14';
 const ASSETS_TO_CACHE = [
   '/manifest.json',
   '/icon.svg',
