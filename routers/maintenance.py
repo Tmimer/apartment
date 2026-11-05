@@ -113,33 +113,20 @@ def get_maintenance_tasks(db: Session = Depends(get_db)):
 
         if is_completed:
             reference_date = t.last_completed_at
-            days_elapsed = max(0, (now - reference_date).days)
-            progress_pct = min(100, round((days_elapsed / interval) * 100))
-            if days_elapsed >= interval:
-                urgency = "OVERDUE"
-                sort_score = 300 + (days_elapsed - interval)
-            elif progress_pct >= 75:
-                urgency = "DUE_SOON"
-                sort_score = 200 + progress_pct
-            else:
-                urgency = "GOOD"
-                sort_score = progress_pct
-            days_remaining = interval - days_elapsed
         else:
-            # Never completed yet - safe math without crash
-            created_ref = t.created_at or now
-            days_elapsed = max(0, (now - created_ref).days)
-            progress_pct = min(100, round((days_elapsed / interval) * 100))
-            if days_elapsed >= interval:
-                urgency = "OVERDUE"
-                sort_score = 280 + days_elapsed
-            elif progress_pct >= 60:
-                urgency = "DUE_SOON"
-                sort_score = 180 + progress_pct
-            else:
-                urgency = "GOOD"
-                sort_score = progress_pct
-            days_remaining = max(0, interval - days_elapsed)
+            reference_date = t.created_at or now
+
+        days_elapsed = max(0, (now - reference_date).days)
+        days_remaining = interval - days_elapsed
+        progress_pct = min(100, round((days_elapsed / interval) * 100))
+        due_date = reference_date + datetime.timedelta(days=interval)
+
+        if days_remaining < 0:
+            urgency = "OVERDUE"
+        elif days_remaining <= 3 or progress_pct >= 75:
+            urgency = "DUE_SOON"
+        else:
+            urgency = "GOOD"
 
         task_list.append({
             "id": t.id,
@@ -152,15 +139,15 @@ def get_maintenance_tasks(db: Session = Depends(get_db)):
             "notes": t.notes,
             "days_elapsed": days_elapsed,
             "days_remaining": days_remaining,
+            "due_date": due_date.isoformat(),
             "progress_pct": progress_pct,
             "urgency": urgency,
-            "_sort_score": sort_score
         })
 
-    # Sort descending by urgency score (overdue first)
-    task_list.sort(key=lambda x: x["_sort_score"], reverse=True)
-    for item in task_list:
-        del item["_sort_score"]
+    # Sort ascending by due date (closest due date first):
+    # Negative days_remaining (overdue) appear at the very top (most overdue first),
+    # followed by tasks due today (0), due tomorrow (1), and tasks due further out.
+    task_list.sort(key=lambda x: (x["days_remaining"], x["interval_days"], x["title"].lower()))
 
     return {
         "tasks": task_list,

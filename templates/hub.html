@@ -1604,7 +1604,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <div style="font-weight:800; font-size:1.05rem; color:var(--text-main);">Apartment Care &amp; Upkeep</div>
-            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Routine checks and recurring deep cleans</div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Routine upkeep · Sorted by closest due date first</div>
           </div>
           <button class="btn-add-plant" onclick="openCreateTaskModal()" style="font-size:0.8rem; padding:8px 14px;">
             + New Task
@@ -4352,10 +4352,12 @@
       const tagEl = document.getElementById('maintenance-count-tag');
       if (!listEl) return;
 
-      let filtered = maintenanceTasks;
+      let filtered = [...maintenanceTasks];
       if (selectedTaskCategory !== 'All') {
         filtered = filtered.filter(t => (t.category || 'General') === selectedTaskCategory);
       }
+      // Always sort by closest due date first (overdue < due today < due soon < due later)
+      filtered.sort((a, b) => a.days_remaining - b.days_remaining);
 
       if (tagEl) {
         tagEl.innerText = `${filtered.length} of ${maintenanceTasks.length} task${maintenanceTasks.length === 1 ? '' : 's'}`;
@@ -4373,8 +4375,9 @@
       }
 
       listEl.innerHTML = filtered.map(t => {
-        const isOverdue = t.urgency === 'OVERDUE';
-        const isDueSoon = t.urgency === 'DUE_SOON';
+        const isOverdue = t.days_remaining < 0 || t.urgency === 'OVERDUE';
+        const isDueToday = t.days_remaining === 0;
+        const isDueSoon = !isOverdue && (t.days_remaining <= 3 || t.urgency === 'DUE_SOON');
         
         let urgencyBadgeClass = 'badge-good';
         let urgencyLabel = `Due in ${t.days_remaining}d`;
@@ -4384,11 +4387,17 @@
           urgencyBadgeClass = 'badge-overdue';
           urgencyLabel = `${Math.abs(t.days_remaining)}d Overdue`;
           cardBorderColor = 'rgba(244, 63, 94, 0.4)';
+        } else if (isDueToday) {
+          urgencyBadgeClass = 'badge-due';
+          urgencyLabel = 'Due Today!';
+          cardBorderColor = 'rgba(245, 158, 11, 0.5)';
         } else if (isDueSoon) {
           urgencyBadgeClass = 'badge-due';
-          urgencyLabel = `Due in ${t.days_remaining}d`;
+          urgencyLabel = t.days_remaining === 1 ? 'Due Tomorrow' : `Due in ${t.days_remaining}d`;
           cardBorderColor = 'rgba(245, 158, 11, 0.4)';
         }
+
+        const dueDateFormatted = t.due_date ? new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
 
         const isNeverCompleted = !t.is_completed || !t.last_completed_at || !t.last_completed_by;
         let lastDoneStr = '';
@@ -4419,7 +4428,7 @@
             <!-- Urgency Progress Bar -->
             <div style="margin: 10px 0 12px 0;">
               <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:var(--text-dim); margin-bottom:4px; font-family:var(--font-mono);">
-                <span>Interval: ${t.days_elapsed} / ${t.interval_days} days</span>
+                <span>Interval: ${t.days_elapsed} / ${t.interval_days}d${dueDateFormatted ? ` · Due ${dueDateFormatted}` : ''}</span>
                 <span>${t.progress_pct}%</span>
               </div>
               <div class="progress-bar-bg">
