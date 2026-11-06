@@ -4,7 +4,7 @@ from models.groceries import GroceryItem, GroceryStaple, GROCERY_CATEGORIES, GRO
 from models.meals import Meal, MealIngredient, MealPlan, FridgeItem
 from models.maintenance import MaintenanceTask
 from models.status import ApartmentStatusNote
-from models.dates import DateSpot, RandomizerPreset
+from models.dates import DateSpot, RandomizerPreset, DateMovie, Movie
 
 __all__ = [
     "Base",
@@ -24,4 +24,6 @@ __all__ = [
     "ApartmentStatusNote",
     "DateSpot",
     "RandomizerPreset",
+    "DateMovie",
+    "Movie",
 ]

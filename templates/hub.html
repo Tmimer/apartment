@@ -125,6 +125,9 @@
       top: 0;
       z-index: 60;
       padding: 8px 12px;
+      padding-top: calc(8px + env(safe-area-inset-top, 0px));
+      padding-left: calc(12px + env(safe-area-inset-left, 0px));
+      padding-right: calc(12px + env(safe-area-inset-right, 0px));
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -261,7 +264,12 @@
     }
 
     @media (max-width: 380px) {
-      .hub-header { padding: 6px 8px; }
+      .hub-header {
+        padding: 6px 8px;
+        padding-top: calc(6px + env(safe-area-inset-top, 0px));
+        padding-left: calc(8px + env(safe-area-inset-left, 0px));
+        padding-right: calc(8px + env(safe-area-inset-right, 0px));
+      }
       .hdr-prof-btn { padding: 3px 6px; font-size: 0.70rem; }
       .hub-brand-text { font-size: 0.80rem; }
     }
@@ -1090,12 +1098,13 @@
       align-items: flex-end;
       justify-content: center;
       z-index: 200;
+      padding-top: env(safe-area-inset-top, 0px);
     }
     .modal-overlay.open { display: flex; }
     .modal-sheet {
       width: 100%;
       max-width: 600px;
-      max-height: 90vh;
+      max-height: calc(90vh - env(safe-area-inset-top, 0px));
       background: #111827;
       border: 1px solid var(--card-border);
       border-radius: 20px 20px 0 0;
@@ -1132,6 +1141,7 @@
     }
     .modal-footer {
       padding: 14px 20px;
+      padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
       border-top: 1px solid var(--card-border);
       display: flex;
       justify-content: flex-end;
@@ -1421,7 +1431,7 @@
 
     .toast-container {
       position: fixed;
-      bottom: 80px;
+      bottom: calc(80px + env(safe-area-inset-bottom, 0px));
       left: 50%;
       transform: translateX(-50%);
       background: rgba(15, 23, 42, 0.92);
@@ -1757,24 +1767,27 @@
               <span style="font-weight:800; font-size:1.15rem; color:var(--text-main); letter-spacing:-0.02em;">The Date &amp; Decider Vault</span>
             </div>
             <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">
-              Wishlists, mutual favorites &amp; instant date night tie-breakers
+              Wishlists, movie night picker, mutual favorites &amp; instant tie-breakers
             </div>
           </div>
-          <button class="btn-add-plant" onclick="openAddDateSpotModal()" style="font-size:0.78rem; padding:8px 14px; background:linear-gradient(135deg, #ec4899, #f43f5e);">
+          <button id="dates-header-add-btn" class="btn-add-plant" onclick="handleDatesHeaderAdd()" style="font-size:0.78rem; padding:8px 14px; background:linear-gradient(135deg, #ec4899, #f43f5e);">
             + Add Spot
           </button>
         </div>
 
-        <!-- 3 Sub-Tabs Switcher -->
-        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:14px; background:rgba(0,0,0,0.25); padding:4px; border-radius:var(--radius-pill); border:1px solid var(--card-border);">
-          <button id="dates-subnav-vault" class="loc-pill active" onclick="switchDatesSubtab('vault')" style="width:100%; text-align:center; padding:7px 4px; font-size:0.76rem;">
-            📖 The Vault
+        <!-- 4 Sub-Tabs Switcher -->
+        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:4px; margin-top:14px; background:rgba(0,0,0,0.25); padding:4px; border-radius:var(--radius-pill); border:1px solid var(--card-border);">
+          <button id="dates-subnav-vault" class="loc-pill active" onclick="switchDatesSubtab('vault')" style="width:100%; text-align:center; padding:7px 2px; font-size:0.73rem;">
+            📖 Spots
           </button>
-          <button id="dates-subnav-spinner" class="loc-pill" onclick="switchDatesSubtab('spinner')" style="width:100%; text-align:center; padding:7px 4px; font-size:0.76rem;">
-            🎲 Date Spinner
+          <button id="dates-subnav-movies" class="loc-pill" onclick="switchDatesSubtab('movies')" style="width:100%; text-align:center; padding:7px 2px; font-size:0.73rem;">
+            🎬 Movies
           </button>
-          <button id="dates-subnav-decider" class="loc-pill" onclick="switchDatesSubtab('decider')" style="width:100%; text-align:center; padding:7px 4px; font-size:0.76rem;">
-            🪙 Coin &amp; Wheels
+          <button id="dates-subnav-spinner" class="loc-pill" onclick="switchDatesSubtab('spinner')" style="width:100%; text-align:center; padding:7px 2px; font-size:0.73rem;">
+            🎲 Date Spin
+          </button>
+          <button id="dates-subnav-decider" class="loc-pill" onclick="switchDatesSubtab('decider')" style="width:100%; text-align:center; padding:7px 2px; font-size:0.73rem;">
+            🪙 Wheels
           </button>
         </div>
       </div>
@@ -1800,6 +1813,71 @@
 
         <!-- Spots List -->
         <div id="date-spots-list" style="display:flex; flex-direction:column; gap:10px;">
+          <!-- Loaded via JS -->
+        </div>
+      </div>
+
+      <!-- SUBTAB 2: MOVIE NIGHT & RANDOM PICKER -->
+      <div id="dates-view-movies" style="display:none; flex-direction:column; gap:12px;">
+        <!-- Movie Randomizer Feature Banner -->
+        <div style="background:linear-gradient(135deg, rgba(168, 85, 247, 0.16), rgba(236, 72, 153, 0.12)); border:1px solid rgba(168, 85, 247, 0.35); border-radius:var(--radius-lg); padding:14px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; box-shadow:0 4px 18px rgba(168, 85, 247, 0.1);">
+          <div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:1.25rem;">🍿</span>
+              <span style="font-weight:800; font-size:0.96rem; color:var(--text-main);">Movie Night Picker</span>
+            </div>
+            <div style="font-size:0.74rem; color:var(--text-muted); margin-top:2px;">
+              Can't decide what to watch? Spin the watchlist wheel!
+            </div>
+          </div>
+          <button class="btn-primary" onclick="openMovieSpinnerModal()" style="font-size:0.84rem; padding:8px 16px; font-weight:800; background:linear-gradient(135deg, #8b5cf6, #ec4899); border:none; box-shadow:0 3px 12px rgba(139, 92, 246, 0.4); display:flex; align-items:center; gap:6px;">
+            <span>🎲</span> Randomize Movie
+          </button>
+        </div>
+
+        <!-- Filters & Actions -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; gap:8px; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+            <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:2px;" id="movies-status-filters">
+              <button class="loc-pill active" id="btn-movie-status-all" onclick="setMovieStatusFilter('all')">All (<span id="movies-count-all">0</span>)</button>
+              <button class="loc-pill" id="btn-movie-status-watchlist" onclick="setMovieStatusFilter('watchlist')">🍿 Watchlist (<span id="movies-count-watchlist">0</span>)</button>
+              <button class="loc-pill" id="btn-movie-status-watched" onclick="setMovieStatusFilter('watched')">✅ Watched (<span id="movies-count-watched">0</span>)</button>
+            </div>
+            <button class="btn-add-plant" onclick="openAddMovieModal()" style="font-size:0.75rem; padding:6px 12px; background:linear-gradient(135deg, #a855f7, #6366f1);">
+              + Add Movie
+            </button>
+          </div>
+
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:140px;">
+              <input type="text" id="movie-search-input" class="form-control" placeholder="Search title, genre, notes..." oninput="handleMovieSearch(this.value)" style="width:100%; font-size:0.78rem; padding:6px 10px;">
+            </div>
+            <select id="movie-genre-select" class="form-control" onchange="setMovieGenreFilter(this.value)" style="width:auto; max-width:140px; font-size:0.78rem; padding:6px 8px;">
+              <option value="all">All Genres</option>
+              <option value="Comedy / Rom-Com">Comedy / Rom-Com</option>
+              <option value="Drama / Romance">Drama / Romance</option>
+              <option value="Action / Sci-Fi">Action / Sci-Fi</option>
+              <option value="Thriller / Mystery">Thriller / Mystery</option>
+              <option value="Horror">Horror</option>
+              <option value="Animation / Cozy">Animation / Cozy</option>
+              <option value="Documentary">Documentary</option>
+              <option value="Classic / Other">Classic / Other</option>
+            </select>
+            <select id="movie-platform-select" class="form-control" onchange="setMoviePlatformFilter(this.value)" style="width:auto; max-width:125px; font-size:0.78rem; padding:6px 8px;">
+              <option value="all">All Platforms</option>
+              <option value="Netflix">Netflix</option>
+              <option value="Disney+">Disney+</option>
+              <option value="Apple TV+">Apple TV+</option>
+              <option value="Prime Video">Prime Video</option>
+              <option value="Max / HBO">Max / HBO</option>
+              <option value="Cinema">Cinema</option>
+              <option value="Other / Stream">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Movies List Container -->
+        <div id="movies-list" style="display:flex; flex-direction:column; gap:10px;">
           <!-- Loaded via JS -->
         </div>
       </div>
@@ -2460,6 +2538,240 @@
     </div>
   </div>
 
+  <!-- ── ADD MOVIE MODAL ── -->
+  <div class="modal-overlay" id="add-movie-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">🍿 Add to Movie Watchlist</div>
+        <button class="btn-close-modal" onclick="closeModal('add-movie-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Movie Title</label>
+          <input type="text" id="movie-input-title" class="form-control" placeholder="e.g. Past Lives, Interstellar, Notting Hill">
+        </div>
+        <div class="form-group">
+          <label>Genre</label>
+          <select id="movie-input-genre" class="form-control">
+            <option value="Comedy / Rom-Com">Comedy / Rom-Com</option>
+            <option value="Drama / Romance">Drama / Romance</option>
+            <option value="Action / Sci-Fi">Action / Sci-Fi</option>
+            <option value="Thriller / Mystery">Thriller / Mystery</option>
+            <option value="Horror">Horror</option>
+            <option value="Animation / Cozy">Animation / Cozy</option>
+            <option value="Documentary">Documentary</option>
+            <option value="Classic / Other">Classic / Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Platform / Where to Watch</label>
+          <select id="movie-input-platform" class="form-control">
+            <option value="Netflix">Netflix</option>
+            <option value="Disney+">Disney+</option>
+            <option value="Apple TV+">Apple TV+</option>
+            <option value="Prime Video">Prime Video</option>
+            <option value="Max / HBO">Max / HBO</option>
+            <option value="Cinema">Cinema</option>
+            <option value="Other / Stream">Other / Torrent</option>
+          </select>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <div class="form-group">
+            <label>Release Year (Optional)</label>
+            <input type="number" id="movie-input-year" class="form-control" placeholder="e.g. 2023" min="1900" max="2099">
+          </div>
+          <div class="form-group">
+            <label>Runtime Minutes (Optional)</label>
+            <input type="number" id="movie-input-runtime" class="form-control" placeholder="e.g. 115" min="10" max="400">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="movie-input-status" class="form-control">
+            <option value="watchlist">🍿 Watchlist (Want to watch)</option>
+            <option value="watched">✅ Already watched together</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Notes / Why we want to watch it</label>
+          <textarea id="movie-input-notes" class="form-control" rows="2" placeholder="e.g. Recommended by friend, perfect cozy date night vibe"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('add-movie-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitAddMovie()">Save Movie</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EDIT MOVIE MODAL ── -->
+  <div class="modal-overlay" id="edit-movie-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">✏️ Edit Movie</div>
+        <button class="btn-close-modal" onclick="closeModal('edit-movie-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-movie-id">
+        <div class="form-group">
+          <label>Movie Title</label>
+          <input type="text" id="edit-movie-title" class="form-control" placeholder="Movie title">
+        </div>
+        <div class="form-group">
+          <label>Genre</label>
+          <select id="edit-movie-genre" class="form-control">
+            <option value="Comedy / Rom-Com">Comedy / Rom-Com</option>
+            <option value="Drama / Romance">Drama / Romance</option>
+            <option value="Action / Sci-Fi">Action / Sci-Fi</option>
+            <option value="Thriller / Mystery">Thriller / Mystery</option>
+            <option value="Horror">Horror</option>
+            <option value="Animation / Cozy">Animation / Cozy</option>
+            <option value="Documentary">Documentary</option>
+            <option value="Classic / Other">Classic / Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Platform / Where to Watch</label>
+          <select id="edit-movie-platform" class="form-control">
+            <option value="Netflix">Netflix</option>
+            <option value="Disney+">Disney+</option>
+            <option value="Apple TV+">Apple TV+</option>
+            <option value="Prime Video">Prime Video</option>
+            <option value="Max / HBO">Max / HBO</option>
+            <option value="Cinema">Cinema</option>
+            <option value="Other / Stream">Other / Torrent</option>
+          </select>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <div class="form-group">
+            <label>Release Year (Optional)</label>
+            <input type="number" id="edit-movie-year" class="form-control" placeholder="e.g. 2023">
+          </div>
+          <div class="form-group">
+            <label>Runtime Minutes (Optional)</label>
+            <input type="number" id="edit-movie-runtime" class="form-control" placeholder="e.g. 115">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="edit-movie-status" class="form-control">
+            <option value="watchlist">🍿 Watchlist (Want to watch)</option>
+            <option value="watched">✅ Already watched</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea id="edit-movie-notes" class="form-control" rows="2" placeholder="Notes..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('edit-movie-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitEditMovie()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── REVIEW MOVIE MODAL ── -->
+  <div class="modal-overlay" id="review-movie-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title" id="review-movie-modal-title">⭐ Rate Movie</div>
+        <button class="btn-close-modal" onclick="closeModal('review-movie-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="review-movie-id">
+        <div id="review-movie-active-user-badge" style="margin-bottom:12px;"></div>
+        <div class="form-group">
+          <label>Your Verdict</label>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+            <button type="button" class="loc-pill" id="movie-verdict-btn-loved" onclick="selectMovieVerdict('loved')" style="text-align:center; padding:10px 4px; font-size:0.8rem;">
+              ❤️ Loved It
+            </button>
+            <button type="button" class="loc-pill" id="movie-verdict-btn-okay" onclick="selectMovieVerdict('okay')" style="text-align:center; padding:10px 4px; font-size:0.8rem;">
+              👍 It's Okay
+            </button>
+            <button type="button" class="loc-pill" id="movie-verdict-btn-skip" onclick="selectMovieVerdict('skip')" style="text-align:center; padding:10px 4px; font-size:0.8rem;">
+              👎 Rather Skip
+            </button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label>Favorite Scene / Thoughts / Review</label>
+          <textarea id="review-movie-input-notes" class="form-control" rows="2" placeholder="e.g. Emotional ending, great soundtrack, loved the lead actor"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('review-movie-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitReviewMovie()">Save Rating</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MOVIE RANDOMIZER PICKER MODAL ── -->
+  <div class="modal-overlay" id="spin-movie-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">🎲 Movie Night Picker</div>
+        <button class="btn-close-modal" onclick="closeModal('spin-movie-modal')">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align:center;">
+        <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px;">
+          Can't decide what to watch tonight? Let the picker choose!
+        </div>
+
+        <!-- Mode Selector -->
+        <div style="display:flex; justify-content:center; gap:6px; margin-bottom:12px; flex-wrap:wrap;">
+          <button id="movie-spin-mode-watchlist" class="loc-pill active" onclick="setMovieSpinMode('watchlist')">
+            🍿 Watchlist
+          </button>
+          <button id="movie-spin-mode-favorite" class="loc-pill" onclick="setMovieSpinMode('favorite')">
+            ❤️ Loved (2.5x Weight)
+          </button>
+          <button id="movie-spin-mode-all" class="loc-pill" onclick="setMovieSpinMode('all')">
+            🎬 All Movies
+          </button>
+        </div>
+
+        <!-- Optional Genre Filter -->
+        <div style="margin-bottom:14px; display:flex; justify-content:center;">
+          <select id="movie-spin-genre" class="form-control" style="width:auto; font-size:0.78rem; padding:6px 12px;">
+            <option value="all">Any Genre</option>
+            <option value="Comedy / Rom-Com">Comedy / Rom-Com</option>
+            <option value="Drama / Romance">Drama / Romance</option>
+            <option value="Action / Sci-Fi">Action / Sci-Fi</option>
+            <option value="Thriller / Mystery">Thriller / Mystery</option>
+            <option value="Horror">Horror</option>
+            <option value="Animation / Cozy">Animation / Cozy</option>
+            <option value="Documentary">Documentary</option>
+            <option value="Classic / Other">Classic / Other</option>
+          </select>
+        </div>
+
+        <!-- Animated Slot Box -->
+        <div id="movie-spin-slot-box" style="min-height:130px; display:flex; flex-direction:column; justify-content:center; align-items:center; background:rgba(0,0,0,0.3); border:2px dashed var(--card-border); border-radius:var(--radius-md); padding:16px; margin-bottom:16px; transition:all 0.3s ease;">
+          <div id="movie-spin-slot-text" style="font-size:1.3rem; font-weight:800; color:var(--text-main); margin-bottom:4px;">
+            Ready to Pick! 🍿
+          </div>
+          <div id="movie-spin-slot-sub" style="font-size:0.8rem; color:var(--text-muted);">
+            Tap the button to pick a movie
+          </div>
+          <div id="movie-spin-winner-card" style="display:none; width:100%; margin-top:8px;"></div>
+        </div>
+
+        <!-- Spinner Action Buttons -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button id="btn-spin-movie-now" class="btn-primary" onclick="spinMoviePicker()" style="font-size:1.02rem; padding:12px 20px; font-weight:800; background:linear-gradient(135deg, #8b5cf6, #ec4899); border:none; box-shadow:0 4px 15px rgba(139, 92, 246, 0.4);">
+            🎲 Pick a Movie!
+          </button>
+          <button id="btn-spin-movie-reroll" class="btn-secondary" onclick="rerollMovieSpin()" style="display:none; font-size:0.82rem; padding:8px 14px;">
+            🔄 Pick Another
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <!-- ── ADD CUSTOM WHEEL MODAL ── -->
   <div class="modal-overlay" id="add-custom-wheel-modal">
     <div class="modal-sheet">
@@ -2516,6 +2828,9 @@
         showToast(user === 'Mikush' ? '🌸 Welcome back Mikush!' : '🌿 Switched to Tamir');
         triggerSparkleBurst(window.innerWidth / 2, 70, user === 'Mikush');
       }
+
+      if (typeof renderDateSpots === 'function') renderDateSpots();
+      if (typeof renderMovies === 'function') renderMovies();
     }
 
     // ---------- SPARKLE / HEART MICRO-ANIMATIONS ----------
@@ -2668,6 +2983,7 @@
         loadMaintenanceTasks();
       } else if (tabName === 'dates') {
         loadDateSpots();
+        loadMovies();
         loadRandomizerPresets();
       }
     }
@@ -5038,16 +5354,51 @@
     let deciderCoinAngle = 0;
     let randomizerPresets = [];
 
+    // Movie Watchlist state
+    let moviesList = [];
+    let movieStatusFilter = 'all';
+    let movieGenreFilter = 'all';
+    let moviePlatformFilter = 'all';
+    let movieSearchQuery = '';
+    let currentMovieSpinWinner = null;
+    let movieSpinMode = 'watchlist';
+    let selectedMovieVerdict = null;
+
+    function handleDatesHeaderAdd() {
+      const activeSubtab = ['vault', 'movies', 'spinner', 'decider'].find(s => {
+        const btn = document.getElementById(`dates-subnav-${s}`);
+        return btn && btn.classList.contains('active');
+      }) || 'vault';
+
+      if (activeSubtab === 'movies') {
+        openAddMovieModal();
+      } else if (activeSubtab === 'decider') {
+        openAddCustomWheelModal();
+      } else {
+        openAddDateSpotModal();
+      }
+    }
+
     function switchDatesSubtab(subtab) {
-      ['vault', 'spinner', 'decider'].forEach(s => {
+      ['vault', 'movies', 'spinner', 'decider'].forEach(s => {
         const btn = document.getElementById(`dates-subnav-${s}`);
         const view = document.getElementById(`dates-view-${s}`);
         if (btn) btn.classList.toggle('active', s === subtab);
         if (view) view.style.display = (s === subtab) ? 'flex' : 'none';
       });
 
+      const addBtn = document.getElementById('dates-header-add-btn');
+      if (addBtn) {
+        if (subtab === 'movies') addBtn.innerText = '+ Add Movie';
+        else if (subtab === 'vault') addBtn.innerText = '+ Add Spot';
+        else if (subtab === 'decider') addBtn.innerText = '+ New Wheel';
+        else addBtn.innerText = '+ Add Spot';
+      }
+
       if (subtab === 'vault') {
         loadDateSpots();
+      } else if (subtab === 'movies') {
+        loadMovies();
       } else if (subtab === 'decider') {
         loadRandomizerPresets();
       }
@@ -5541,6 +5892,555 @@
 
 
     // ========================================================
+    // 🍿 MOVIE NIGHT & RANDOM PICKER LOGIC
+    // ========================================================
+    async function loadMovies() {
+      try {
+        let url = `/dates/api/movies?status=${encodeURIComponent(movieStatusFilter)}&genre=${encodeURIComponent(movieGenreFilter)}&platform=${encodeURIComponent(moviePlatformFilter)}`;
+        if (movieSearchQuery) {
+          url += `&search=${encodeURIComponent(movieSearchQuery)}`;
+        }
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('Failed to load movies');
+        moviesList = await res.json();
+        updateMovieFilterCounts();
+        renderMovies();
+      } catch (err) {
+        console.warn('Error loading movies:', err);
+      }
+    }
+
+    function updateMovieFilterCounts() {
+      let countWatchlist = 0;
+      let countWatched = 0;
+      moviesList.forEach(m => {
+        if (m.status === 'watchlist') countWatchlist++;
+        else countWatched++;
+      });
+      const elAll = document.getElementById('movies-count-all');
+      const elWatch = document.getElementById('movies-count-watchlist');
+      const elWatched = document.getElementById('movies-count-watched');
+      if (elAll) elAll.innerText = moviesList.length;
+      if (elWatch) elWatch.innerText = countWatchlist;
+      if (elWatched) elWatched.innerText = countWatched;
+    }
+
+    function setMovieStatusFilter(st) {
+      movieStatusFilter = st;
+      ['all', 'watchlist', 'watched'].forEach(s => {
+        const btn = document.getElementById(`btn-movie-status-${s}`);
+        if (btn) btn.classList.toggle('active', s === st);
+      });
+      renderMovies();
+    }
+
+    function setMovieGenreFilter(g) {
+      movieGenreFilter = g;
+      loadMovies();
+    }
+
+    function setMoviePlatformFilter(p) {
+      moviePlatformFilter = p;
+      loadMovies();
+    }
+
+    function handleMovieSearch(val) {
+      movieSearchQuery = (val || '').trim();
+      renderMovies();
+    }
+
+    function getPlatformBadge(plat) {
+      if (!plat) return '';
+      let color = 'rgba(168, 85, 247, 0.15)';
+      let border = 'rgba(168, 85, 247, 0.3)';
+      let text = 'var(--purple)';
+      if (plat.includes('Netflix')) { color = 'rgba(239, 68, 68, 0.15)'; border = 'rgba(239, 68, 68, 0.35)'; text = '#ef4444'; }
+      else if (plat.includes('Disney')) { color = 'rgba(59, 130, 246, 0.15)'; border = 'rgba(59, 130, 246, 0.35)'; text = '#60a5fa'; }
+      else if (plat.includes('Apple')) { color = 'rgba(255, 255, 255, 0.1)'; border = 'rgba(255, 255, 255, 0.2)'; text = '#e2e8f0'; }
+      else if (plat.includes('Prime')) { color = 'rgba(14, 165, 233, 0.15)'; border = 'rgba(14, 165, 233, 0.35)'; text = '#38bdf8'; }
+      return `<span style="font-size:0.68rem; color:${text}; background:${color}; border:1px solid ${border}; border-radius:var(--radius-pill); padding:1px 7px; font-weight:700;">📺 ${escapeHtml(plat)}</span>`;
+    }
+
+    function renderMovies() {
+      const listEl = document.getElementById('movies-list');
+      if (!listEl) return;
+
+      let filtered = moviesList;
+      if (movieStatusFilter !== 'all') {
+        filtered = filtered.filter(m => m.status === movieStatusFilter);
+      }
+      if (movieGenreFilter !== 'all') {
+        filtered = filtered.filter(m => (m.genre || '').toLowerCase() === movieGenreFilter.toLowerCase());
+      }
+      if (moviePlatformFilter !== 'all') {
+        filtered = filtered.filter(m => (m.platform || '').toLowerCase() === moviePlatformFilter.toLowerCase());
+      }
+      if (movieSearchQuery) {
+        const q = movieSearchQuery.toLowerCase();
+        filtered = filtered.filter(m => 
+          (m.title || '').toLowerCase().includes(q) || 
+          (m.notes || '').toLowerCase().includes(q)
+        );
+      }
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div style="text-align:center; padding:36px 12px; color:var(--text-muted); background:var(--card-bg); border-radius:var(--radius-md); border:1px dashed var(--card-border);">
+            <div style="font-size:2rem; margin-bottom:6px;">🍿</div>
+            <div style="font-weight:700; color:var(--text-main);">No movies found</div>
+            <div style="font-size:0.78rem; margin-top:2px;">Tap "+ Add Movie" to add a film to your watchlist!</div>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(m => {
+        const isWatched = (m.status === 'watched');
+        const isMutual = m.is_mutual_love;
+
+        function formatMovieVerdict(user, v) {
+          const icon = (user === 'Mikush') ? '🌸' : '🌿';
+          const name = user;
+          if (!v) {
+            return `<span style="font-size:0.7rem; color:var(--text-dim); background:rgba(255,255,255,0.04); padding:2px 8px; border-radius:var(--radius-pill); border:1px solid var(--card-border);">${icon} ${name}: Unrated</span>`;
+          }
+          if (v === 'loved') {
+            return `<span style="font-size:0.7rem; color:#f43f5e; background:rgba(244,63,94,0.15); padding:2px 8px; border-radius:var(--radius-pill); border:1px solid rgba(244,63,94,0.3); font-weight:700;">${icon} ${name}: Loved it ❤️</span>`;
+          }
+          if (v === 'okay') {
+            return `<span style="font-size:0.7rem; color:#f59e0b; background:rgba(245,158,11,0.15); padding:2px 8px; border-radius:var(--radius-pill); border:1px solid rgba(245,158,11,0.3);">${icon} ${name}: It's okay 👍</span>`;
+          }
+          return `<span style="font-size:0.7rem; color:var(--text-dim); background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:var(--radius-pill); border:1px solid var(--card-border);">${icon} ${name}: Skip 👎</span>`;
+        }
+
+        const tamirBadge = formatMovieVerdict('Tamir', m.tamir_verdict);
+        const mikushBadge = formatMovieVerdict('Mikush', m.mikush_verdict);
+
+        const metaParts = [];
+        if (m.release_year) metaParts.push(m.release_year);
+        if (m.runtime_min) metaParts.push(`${m.runtime_min}m`);
+        const metaStr = metaParts.length ? `<span style="font-size:0.7rem; color:var(--text-dim); background:rgba(255,255,255,0.05); padding:1px 6px; border-radius:var(--radius-pill);">${metaParts.join(' • ')}</span>` : '';
+
+        const addedByBadge = m.added_by ? `
+          <span style="font-size:0.68rem; color:var(--text-dim); background:rgba(255,255,255,0.04); padding:1px 6px; border-radius:var(--radius-pill);">
+            ${m.added_by === 'Mikush' ? '🌸 Mikush' : '🌿 Tamir'}
+          </span>
+        ` : '';
+
+        return `
+          <div class="plant-card" style="padding:14px; border-color:${isMutual ? 'rgba(236,72,153,0.45)' : 'var(--card-border)'}; box-shadow:${isMutual ? '0 4px 18px rgba(236,72,153,0.15)' : 'none'};">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div style="flex:1; min-width:0;">
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <span style="font-weight:800; font-size:1.02rem; color:var(--text-main);">${escapeHtml(m.title)}</span>
+                  <span class="location-badge" style="font-size:0.68rem;">${escapeHtml(m.genre)}</span>
+                  ${getPlatformBadge(m.platform)}
+                  ${metaStr}
+                  ${addedByBadge}
+                  ${isMutual ? `<span style="font-size:0.68rem; background:linear-gradient(135deg, #ec4899, #f43f5e); color:#fff; font-weight:800; padding:2px 8px; border-radius:var(--radius-pill); box-shadow:0 2px 8px rgba(236,72,153,0.4);">💖 MUTUAL FAVORITE</span>` : ''}
+                </div>
+              </div>
+              <span class="urgency-badge ${isWatched ? 'badge-good' : 'badge-due'}" style="font-size:0.68rem; flex-shrink:0;">
+                ${isWatched ? 'Watched' : 'Watchlist'}
+              </span>
+            </div>
+
+            <!-- Partner Verdict Badges -->
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:10px; padding-top:8px; border-top:1px solid var(--card-border);">
+              ${tamirBadge}
+              ${mikushBadge}
+            </div>
+
+            ${m.notes ? `
+              <div style="font-size:0.78rem; color:var(--text-muted); background:rgba(0,0,0,0.25); border-left:3px solid var(--purple); padding:6px 10px; border-radius:var(--radius-sm); margin-top:8px;">
+                💡 ${escapeHtml(m.notes)}
+              </div>
+            ` : ''}
+
+            <!-- Actions Bar -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:6px; flex-wrap:wrap;">
+              <button 
+                class="btn-secondary" 
+                onclick="toggleMovieWatchedStatus(${m.id})" 
+                title="${isWatched ? 'Move back to Watchlist' : 'Mark as Watched'}"
+                style="padding:7px 10px; font-size:0.76rem; border-color:${isWatched ? 'var(--emerald)' : 'var(--card-border)'}; color:${isWatched ? 'var(--emerald)' : 'var(--text-main)'};"
+              >
+                ${isWatched ? '✅ Watched' : '🍿 Mark Watched'}
+              </button>
+              <button 
+                class="btn-secondary" 
+                onclick="openReviewMovieModal(${m.id})" 
+                style="flex:1; padding:7px 10px; font-size:0.76rem; border-color:var(--accent); color:var(--accent);"
+              >
+                ⭐ Rate (${currentProfile})
+              </button>
+              <button 
+                class="btn-secondary" 
+                onclick="openEditMovieModal(${m.id})" 
+                title="Edit Movie"
+                style="padding:7px 10px; font-size:0.76rem;"
+              >
+                ✏️
+              </button>
+              <button 
+                class="btn-log-action" 
+                onclick="deleteMovieDirect(${m.id}, '${escapeHtml(m.title)}')" 
+                title="Delete Movie"
+                style="padding:7px 10px; font-size:0.8rem;"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openAddMovieModal() {
+      document.getElementById('movie-input-title').value = '';
+      document.getElementById('movie-input-genre').value = 'Comedy / Rom-Com';
+      document.getElementById('movie-input-platform').value = 'Netflix';
+      document.getElementById('movie-input-year').value = '';
+      document.getElementById('movie-input-runtime').value = '';
+      document.getElementById('movie-input-status').value = 'watchlist';
+      document.getElementById('movie-input-notes').value = '';
+      openModal('add-movie-modal');
+      setTimeout(() => document.getElementById('movie-input-title').focus(), 150);
+    }
+
+    async function submitAddMovie() {
+      const title = document.getElementById('movie-input-title').value.trim();
+      if (!title) {
+        alert('Please enter a movie title');
+        return;
+      }
+      const genre = document.getElementById('movie-input-genre').value;
+      const platform = document.getElementById('movie-input-platform').value;
+      const year = parseInt(document.getElementById('movie-input-year').value) || null;
+      const runtime = parseInt(document.getElementById('movie-input-runtime').value) || null;
+      const status = document.getElementById('movie-input-status').value;
+      const notes = document.getElementById('movie-input-notes').value.trim();
+
+      try {
+        const res = await fetch('/dates/api/movies', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            title: title,
+            genre: genre,
+            platform: platform,
+            release_year: year,
+            runtime_min: runtime,
+            status: status,
+            notes: notes || null
+          })
+        });
+        if (!res.ok) throw new Error('Failed to save movie');
+        closeModal('add-movie-modal');
+        showToast(`🍿 Added "${title}" to movies!`);
+        triggerSparkleBurst(window.innerWidth / 2, 70, currentProfile === 'Mikush');
+        loadMovies();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    function openEditMovieModal(id) {
+      const m = moviesList.find(x => x.id === id);
+      if (!m) return;
+      document.getElementById('edit-movie-id').value = m.id;
+      document.getElementById('edit-movie-title').value = m.title;
+      document.getElementById('edit-movie-genre').value = m.genre || 'Comedy / Rom-Com';
+      document.getElementById('edit-movie-platform').value = m.platform || 'Netflix';
+      document.getElementById('edit-movie-year').value = m.release_year || '';
+      document.getElementById('edit-movie-runtime').value = m.runtime_min || '';
+      document.getElementById('edit-movie-status').value = m.status || 'watchlist';
+      document.getElementById('edit-movie-notes').value = m.notes || '';
+      openModal('edit-movie-modal');
+    }
+
+    async function submitEditMovie() {
+      const id = document.getElementById('edit-movie-id').value;
+      const title = document.getElementById('edit-movie-title').value.trim();
+      if (!title) {
+        alert('Please enter a movie title');
+        return;
+      }
+      const genre = document.getElementById('edit-movie-genre').value;
+      const platform = document.getElementById('edit-movie-platform').value;
+      const year = parseInt(document.getElementById('edit-movie-year').value) || null;
+      const runtime = parseInt(document.getElementById('edit-movie-runtime').value) || null;
+      const status = document.getElementById('edit-movie-status').value;
+      const notes = document.getElementById('edit-movie-notes').value.trim();
+
+      try {
+        const res = await fetch(`/dates/api/movies/${id}`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            title: title,
+            genre: genre,
+            platform: platform,
+            release_year: year,
+            runtime_min: runtime,
+            status: status,
+            notes: notes || null
+          })
+        });
+        if (!res.ok) throw new Error('Failed to update movie');
+        closeModal('edit-movie-modal');
+        showToast(`Updated "${title}"`);
+        loadMovies();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    function openReviewMovieModal(id) {
+      const m = moviesList.find(x => x.id === id);
+      if (!m) return;
+      document.getElementById('review-movie-id').value = m.id;
+      document.getElementById('review-movie-modal-title').innerText = `⭐ Rate "${m.title}"`;
+
+      const activeBadge = document.getElementById('review-movie-active-user-badge');
+      if (activeBadge) {
+        activeBadge.innerHTML = `
+          <div style="font-size:0.76rem; color:var(--text-muted); background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:var(--radius-sm);">
+            Rating as <strong>${currentProfile === 'Mikush' ? '🌸 Mikush' : '🌿 Tamir'}</strong> (does not overwrite ${currentProfile === 'Mikush' ? 'Tamir' : 'Mikush'}'s verdict)
+          </div>
+        `;
+      }
+
+      const curVerdict = (currentProfile === 'Mikush') ? m.mikush_verdict : m.tamir_verdict;
+      selectMovieVerdict(curVerdict);
+
+      document.getElementById('review-movie-input-notes').value = m.notes || '';
+      openModal('review-movie-modal');
+    }
+
+    function selectMovieVerdict(v) {
+      selectedMovieVerdict = v;
+      ['loved', 'okay', 'skip'].forEach(val => {
+        const btn = document.getElementById(`movie-verdict-btn-${val}`);
+        if (btn) btn.classList.toggle('active', val === v);
+      });
+    }
+
+    async function submitReviewMovie() {
+      const id = document.getElementById('review-movie-id').value;
+      const notes = document.getElementById('review-movie-input-notes').value.trim();
+
+      try {
+        const res = await fetch(`/dates/api/movies/${id}/review`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            verdict: selectedMovieVerdict,
+            notes: notes || null
+          })
+        });
+        if (!res.ok) throw new Error('Failed to save movie rating');
+        closeModal('review-movie-modal');
+        showToast(`⭐ Rating saved by ${currentProfile}!`);
+        triggerSparkleBurst(window.innerWidth / 2, 70, currentProfile === 'Mikush');
+        loadMovies();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function toggleMovieWatchedStatus(id) {
+      try {
+        const res = await fetch(`/dates/api/movies/${id}/toggle-status`, {
+          method: 'POST',
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error('Failed to toggle status');
+        const data = await res.json();
+        const isWatched = (data.movie.status === 'watched');
+        showToast(isWatched ? `✅ Marked "${data.movie.title}" as Watched!` : `🍿 Moved "${data.movie.title}" to Watchlist!`);
+        if (isWatched) {
+          triggerSparkleBurst(window.innerWidth / 2, 70, currentProfile === 'Mikush');
+        }
+        loadMovies();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function deleteMovieDirect(id, title) {
+      if (!confirm(`Delete "${title}" from movie list?`)) return;
+      try {
+        const res = await fetch(`/dates/api/movies/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error('Failed to delete movie');
+        showToast(`🗑️ Deleted "${title}"`);
+        loadMovies();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    function openMovieSpinnerModal() {
+      currentMovieSpinWinner = null;
+      const slotText = document.getElementById('movie-spin-slot-text');
+      const slotSub = document.getElementById('movie-spin-slot-sub');
+      const winnerCard = document.getElementById('movie-spin-winner-card');
+      const spinBtn = document.getElementById('btn-spin-movie-now');
+      const rerollBtn = document.getElementById('btn-spin-movie-reroll');
+
+      if (slotText) {
+        slotText.style.display = 'block';
+        slotText.innerText = 'Ready to Pick! 🍿';
+      }
+      if (slotSub) {
+        slotSub.style.display = 'block';
+        slotSub.innerText = 'Tap the button to pick a movie';
+      }
+      if (winnerCard) winnerCard.style.display = 'none';
+      if (spinBtn) spinBtn.disabled = false;
+      if (rerollBtn) rerollBtn.style.display = 'none';
+
+      openModal('spin-movie-modal');
+    }
+
+    function setMovieSpinMode(mode) {
+      movieSpinMode = mode;
+      ['watchlist', 'favorite', 'all'].forEach(m => {
+        const btn = document.getElementById(`movie-spin-mode-${m}`);
+        if (btn) btn.classList.toggle('active', m === mode);
+      });
+    }
+
+    async function spinMoviePicker(excludeId = null) {
+      const slotText = document.getElementById('movie-spin-slot-text');
+      const slotSub = document.getElementById('movie-spin-slot-sub');
+      const winnerCard = document.getElementById('movie-spin-winner-card');
+      const spinBtn = document.getElementById('btn-spin-movie-now');
+      const rerollBtn = document.getElementById('btn-spin-movie-reroll');
+      const genreSelect = document.getElementById('movie-spin-genre');
+      const genre = genreSelect ? genreSelect.value : 'all';
+
+      winnerCard.style.display = 'none';
+      slotText.style.display = 'block';
+      slotSub.style.display = 'block';
+      slotText.innerText = "Spinning reel... 🍿";
+      slotSub.innerText = "Finding the perfect movie for tonight...";
+      if (spinBtn) spinBtn.disabled = true;
+      if (rerollBtn) rerollBtn.style.display = 'none';
+
+      const candidateTitles = (moviesList.length > 0)
+        ? moviesList.map(m => m.title)
+        : ["About Time", "Spirited Away", "Knives Out", "La La Land", "Interstellar", "Paddington 2"];
+
+      let tick = 0;
+      const spinInterval = setInterval(() => {
+        const randTitle = candidateTitles[Math.floor(Math.random() * candidateTitles.length)];
+        slotText.innerText = `🎬 ${randTitle}`;
+        tick++;
+      }, 70);
+
+      try {
+        let url = `/dates/api/movies/spin?mode=${encodeURIComponent(movieSpinMode)}`;
+        if (genre && genre !== 'all') url += `&genre=${encodeURIComponent(genre)}`;
+        if (excludeId) url += `&exclude_id=${excludeId}`;
+
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        const data = await res.json();
+
+        setTimeout(() => {
+          clearInterval(spinInterval);
+          if (spinBtn) spinBtn.disabled = false;
+
+          if (data.status === 'empty' || !data.movie) {
+            slotText.innerText = "No movies found! 🍿";
+            slotSub.innerText = data.message || "Add some movies to your watchlist first.";
+            return;
+          }
+
+          const m = data.movie;
+          currentMovieSpinWinner = m;
+
+          slotText.style.display = 'none';
+          slotSub.style.display = 'none';
+
+          const isMutual = m.is_mutual_love;
+          const metaParts = [];
+          if (m.release_year) metaParts.push(m.release_year);
+          if (m.runtime_min) metaParts.push(`${m.runtime_min}m`);
+          const metaStr = metaParts.length ? `<span style="font-size:0.75rem; color:var(--text-dim);">${metaParts.join(' • ')}</span>` : '';
+
+          winnerCard.innerHTML = `
+            <div style="background:rgba(255,255,255,0.04); border:2px solid ${isMutual ? '#ec4899' : 'var(--accent)'}; border-radius:var(--radius-md); padding:16px; text-align:left; animation:sheet-up 0.3s ease;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                <div>
+                  <div style="font-size:0.7rem; font-weight:800; text-transform:uppercase; color:var(--accent); letter-spacing:0.05em; margin-bottom:2px;">
+                    🎉 TONIGHT'S PICK
+                  </div>
+                  <div style="font-size:1.25rem; font-weight:800; color:var(--text-main); line-height:1.25;">
+                    ${escapeHtml(m.title)}
+                  </div>
+                  <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px;">
+                    <span class="location-badge" style="font-size:0.68rem;">${escapeHtml(m.genre)}</span>
+                    ${getPlatformBadge(m.platform)}
+                    ${metaStr}
+                    ${isMutual ? `<span style="font-size:0.68rem; background:linear-gradient(135deg, #ec4899, #f43f5e); color:#fff; font-weight:800; padding:2px 8px; border-radius:var(--radius-pill);">💖 BOTH LOVED IT</span>` : ''}
+                  </div>
+                </div>
+                <span class="urgency-badge ${m.status === 'watched' ? 'badge-good' : 'badge-due'}" style="font-size:0.68rem;">
+                  ${m.status === 'watched' ? 'Watched' : 'Watchlist'}
+                </span>
+              </div>
+
+              ${m.notes ? `
+                <div style="font-size:0.8rem; color:var(--text-muted); background:rgba(0,0,0,0.25); border-left:3px solid var(--accent); padding:6px 10px; border-radius:var(--radius-sm); margin-top:10px;">
+                  💡 ${escapeHtml(m.notes)}
+                </div>
+              ` : ''}
+
+              <div style="display:flex; gap:8px; margin-top:14px;">
+                <button 
+                  class="btn-primary" 
+                  onclick="acceptMovieWinner()" 
+                  style="flex:1; padding:9px 12px; font-size:0.85rem; font-weight:700; background:linear-gradient(135deg, #10b981, #059669);"
+                >
+                  🍿 Watch This Tonight!
+                </button>
+              </div>
+            </div>
+          `;
+          winnerCard.style.display = 'block';
+          if (rerollBtn) rerollBtn.style.display = 'inline-block';
+
+          triggerSparkleBurst(window.innerWidth / 2, window.innerHeight / 2 - 50, true);
+        }, 1100);
+
+      } catch (err) {
+        clearInterval(spinInterval);
+        if (spinBtn) spinBtn.disabled = false;
+        slotText.innerText = "Error picking movie";
+        slotSub.innerText = err.message;
+      }
+    }
+
+    function rerollMovieSpin() {
+      if (!currentMovieSpinWinner) return;
+      spinMoviePicker(currentMovieSpinWinner.id);
+    }
+
+    function acceptMovieWinner() {
+      if (!currentMovieSpinWinner) return;
+      showToast(`🍿 Have a wonderful movie night watching "${currentMovieSpinWinner.title}"!`);
+      closeModal('spin-movie-modal');
+      if (currentMovieSpinWinner.status !== 'watched') {
+        toggleMovieWatchedStatus(currentMovieSpinWinner.id);
+      }
+    }
+
+
+    // ========================================================
     // 🪙 COIN FLIP & DECISION WHEELS LOGIC
     // ========================================================
     function flipDeciderCoin() {
@@ -5749,7 +6649,7 @@
         else if (currentTab === 'groceries') loadGroceries();
         else if (currentTab === 'meals') { loadMealPlan(); loadFridgeItems(); }
         else if (currentTab === 'maintenance') loadMaintenanceTasks();
-        else if (currentTab === 'dates') { loadDateSpots(); loadRandomizerPresets(); }
+        else if (currentTab === 'dates') { loadDateSpots(); loadMovies(); loadRandomizerPresets(); }
       }, 60000);
     });
   </script>

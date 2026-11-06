@@ -13,7 +13,7 @@ from models import (
     GroceryItem, GroceryStaple,
     Meal, MealIngredient, MealPlan, FridgeItem,
     MaintenanceTask, ApartmentStatusNote,
-    DateSpot, RandomizerPreset
+    DateSpot, RandomizerPreset, DateMovie, Movie
 )
 from security import is_authenticated, COOKIE_NAME
 from routers import (

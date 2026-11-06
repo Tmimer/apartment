@@ -27,3 +27,24 @@ class RandomizerPreset(Base):
     title = Column(String(150), nullable=False)
     options_json = Column(Text, nullable=False)  # JSON-encoded array of string options
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class DateMovie(Base):
+    __tablename__ = "date_movies"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    title = Column(String(255), nullable=False)
+    genre = Column(String(100), nullable=False, default="Comedy / Rom-Com")
+    platform = Column(String(100), nullable=True)  # Netflix, Disney+, Apple TV+, Prime Video, Max, Cinema, etc.
+    release_year = Column(Integer, nullable=True)
+    runtime_min = Column(Integer, nullable=True)
+    status = Column(String(50), nullable=False, default="watchlist")  # watchlist | watched
+    tamir_verdict = Column(String(50), nullable=True)  # loved | okay | skip | None
+    mikush_verdict = Column(String(50), nullable=True)  # loved | okay | skip | None
+    notes = Column(Text, nullable=True)
+    added_by = Column(String(50), nullable=False, default="Tamir")
+    watched_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+Movie = DateMovie
