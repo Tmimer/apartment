@@ -10,16 +10,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import engine, SessionLocal, Base
 from models import (
     Plant, WateringLog, PushSubscription, AppConfig,
-    GroceryItem, GroceryStaple,
+    GroceryItem, GroceryStaple, GroceryPurchaseHistory,
     Meal, MealIngredient, MealPlan, FridgeItem,
     MaintenanceTask, ApartmentStatusNote,
-    DateSpot, RandomizerPreset, DateMovie, Movie
+    DateSpot, RandomizerPreset, DateMovie, Movie,
+    LearnedItemRule, ReceiptScan, LedgerSettlement, LedgerTransaction
 )
 from security import is_authenticated, COOKIE_NAME
 from routers import (
     auth_router, health_router, plants_router,
     groceries_router, meals_router, maintenance_router,
-    status_note_router, dates_router
+    status_note_router, dates_router,
+    receipts_router, ledger_router
 )
 from routers.plants import init_plant_db, check_and_notify_due_plants
 from migrations import auto_migrate_schema
@@ -131,6 +133,8 @@ app.include_router(meals_router)
 app.include_router(maintenance_router)
 app.include_router(status_note_router)
 app.include_router(dates_router)
+app.include_router(receipts_router)
+app.include_router(ledger_router)
 
 
 # ===================== ROOT & SHELL SERVING =====================
@@ -168,6 +172,13 @@ def groceries_view(request: Request):
 @app.get("/shop", response_class=HTMLResponse)
 def shop_view(request: Request):
     """Serves the unified Apartment Hub shell focused on Groceries (Shop) tab."""
+    return serve_hub_shell(request, default_tab="groceries")
+
+
+@app.get("/ledger", response_class=HTMLResponse)
+@app.get("/expenses", response_class=HTMLResponse)
+def ledger_view(request: Request):
+    """Serves the unified Apartment Hub shell focused on Groceries & Splitwise Ledger tab."""
     return serve_hub_shell(request, default_tab="groceries")
 
 

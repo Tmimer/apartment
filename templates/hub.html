@@ -35,11 +35,12 @@
       --radius-full: 9999px;
       
       --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
+      --font-mono: 'JetBrains Mono', 'Segoe UI', 'Plus Jakarta Sans', sans-serif;
     }
 
     /* ── TAMIR THEME (Sleek Dark Slate / Obsidian) ── */
     body, body[data-theme="tamir"] {
+      color-scheme: dark;
       --bg: #0b111e;
       --bg-gradient: radial-gradient(circle at top right, #131c31 0%, #0b111e 65%);
       --card-bg: #131b2e;
@@ -48,8 +49,8 @@
       --header-bg: rgba(15, 23, 42, 0.88);
       --nav-bg: rgba(15, 23, 42, 0.94);
       --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --text-dim: #64748b;
+      --text-muted: #cbd5e1;
+      --text-dim: #94a3b8;
       --accent: #10b981;
       --accent-glow: rgba(16, 185, 129, 0.22);
       --accent-contrast: #042f2e;
@@ -60,6 +61,7 @@
 
     /* ── MIKUSH THEME (Warm, Cute, Aesthetic Pastel & Cozy Glass) ── */
     body[data-theme="mikush"] {
+      color-scheme: dark;
       --bg: #150d18;
       --bg-gradient: radial-gradient(circle at top right, #2c142e 0%, #170d19 55%, #120914 100%);
       --card-bg: #211326;
@@ -68,8 +70,8 @@
       --header-bg: rgba(29, 15, 33, 0.90);
       --nav-bg: rgba(29, 15, 33, 0.95);
       --text-main: #fff0f3;
-      --text-muted: #e7bed0;
-      --text-dim: #ab8196;
+      --text-muted: #f2d5e3;
+      --text-dim: #cfa6bc;
       --accent: #f43f5e;
       --accent-glow: rgba(244, 63, 94, 0.32);
       --accent-contrast: #ffffff;
@@ -950,6 +952,10 @@
       scrollbar-width: none;
     }
     .staples-bar::-webkit-scrollbar { display: none; }
+    .staples-bar.wrap-chips {
+      flex-wrap: wrap;
+      overflow-x: visible;
+    }
     .staple-chip {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -1034,6 +1040,13 @@
       align-items: center;
       gap: 12px;
       flex: 1;
+      min-width: 0;
+    }
+    .bidi-text {
+      unicode-bidi: plaintext;
+      text-align: start;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .grocery-checkbox {
       width: 20px;
@@ -1068,6 +1081,222 @@
     .grocery-by {
       font-size: 0.7rem;
       color: var(--text-dim);
+    }
+
+    /* ── ZERO-ENTRY SUITE: BRAIN DUMP, RECEIPT SCANNER, LEDGER & RADAR ── */
+    .shop-subnav-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 6px;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--card-border);
+      padding: 5px;
+      border-radius: var(--radius-full);
+    }
+    .shop-subnav-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 0.8rem;
+      padding: 8px 10px;
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .shop-subnav-btn.active {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(56, 189, 248, 0.2));
+      color: #f8fafc;
+      border: 1px solid rgba(16, 185, 129, 0.45);
+    }
+    .btn-scan-receipt-cta {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-full);
+      padding: 8px 13px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 2px 10px rgba(99, 102, 241, 0.35);
+    }
+    .ledger-balance-pill {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.14), rgba(236, 72, 153, 0.1));
+      border: 1px solid rgba(129, 140, 248, 0.35);
+      border-radius: var(--radius-md);
+      padding: 9px 13px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .brain-dump-card {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(56, 189, 248, 0.08));
+      border: 1px solid rgba(56, 189, 248, 0.32);
+      border-radius: var(--radius-lg);
+      padding: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .brain-dump-input-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .btn-mic-pulse {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      border-radius: var(--radius-full);
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .btn-mic-pulse.recording {
+      background: rgba(244, 63, 94, 0.25);
+      border-color: #f43f5e;
+      color: #fda4af;
+      animation: pulse-ring 1.2s infinite;
+    }
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5); }
+      70% { box-shadow: 0 0 0 8px rgba(244, 63, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+    }
+    .radar-chip {
+      background: rgba(245, 158, 11, 0.14);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fde68a;
+      padding: 6px 11px;
+      border-radius: var(--radius-full);
+      font-size: 0.76rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .meal-cart-chip {
+      background: rgba(168, 85, 247, 0.14);
+      border: 1px solid rgba(168, 85, 247, 0.38);
+      color: #e9d5ff;
+      padding: 6px 11px;
+      border-radius: var(--radius-full);
+      font-size: 0.76rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .solo-shopper-toggle {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 5px 10px;
+      border-radius: var(--radius-full);
+      font-size: 0.74rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .solo-shopper-toggle.active {
+      background: rgba(16, 185, 129, 0.18);
+      border-color: var(--emerald);
+      color: #a7f3d0;
+    }
+    .produce-dimmed-banner {
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px dashed rgba(148, 163, 184, 0.35);
+      color: var(--text-muted);
+      border-radius: var(--radius-md);
+      padding: 9px 12px;
+      font-size: 0.78rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      opacity: 0.75;
+    }
+    .owner-pill {
+      padding: 5px 10px;
+      border-radius: var(--radius-full);
+      font-size: 0.73rem;
+      font-weight: 800;
+      cursor: pointer;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .owner-pill-5050 {
+      background: rgba(99, 102, 241, 0.22);
+      border-color: rgba(129, 140, 248, 0.5);
+      color: #c7d2fe;
+    }
+    .owner-pill-mikush {
+      background: rgba(236, 72, 153, 0.22);
+      border-color: rgba(244, 114, 182, 0.55);
+      color: #fbcfe8;
+    }
+    .owner-pill-tamir {
+      background: rgba(16, 185, 129, 0.22);
+      border-color: rgba(52, 211, 153, 0.55);
+      color: #a7f3d0;
+    }
+    .receipt-item-row {
+      background: rgba(30, 41, 59, 0.65);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .receipt-item-row.row-mikush { border-left: 3px solid #ec4899; }
+    .receipt-item-row.row-tamir { border-left: 3px solid #10b981; }
+    .receipt-item-row.row-5050 { border-left: 3px solid #6366f1; }
+    .receipt-badge-tag {
+      font-size: 0.66rem;
+      padding: 1px 6px;
+      border-radius: 6px;
+      font-weight: 700;
+      display: inline-block;
+      margin-top: 2px;
+    }
+    .ledger-hero-card {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.16), rgba(16, 185, 129, 0.1));
+      border: 1px solid rgba(129, 140, 248, 0.35);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .tx-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 11px 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
     }
 
     /* ── MEALS TAB PREVIEW ── */
@@ -1138,6 +1367,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-shrink: 0;
     }
     .modal-title { font-weight: 800; font-size: 1.1rem; }
     .btn-close-modal {
@@ -1146,6 +1376,11 @@
       color: var(--text-muted);
       font-size: 1.5rem;
       cursor: pointer;
+      min-width: 36px;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     .modal-body {
       padding: 18px 20px;
@@ -1153,6 +1388,9 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
+      flex: 1 1 auto;
+      min-height: 0;
+      overscroll-behavior: contain;
     }
     .modal-footer {
       padding: 14px 20px;
@@ -1161,6 +1399,7 @@
       display: flex;
       justify-content: flex-end;
       gap: 8px;
+      flex-shrink: 0;
     }
 
     .form-group {
@@ -1285,10 +1524,80 @@
       background: transparent;
       border: none;
       cursor: pointer;
-      font-size: 0.9rem;
-      opacity: 0.6;
+      font-size: 0.95rem;
+      opacity: 0.78;
+      min-width: 34px;
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
     }
-    .btn-log-action:hover { opacity: 1; }
+    .btn-log-action:hover { opacity: 1; background: rgba(255,255,255,0.06); }
+
+    /* Breakdown Drawer & Mobile Responsiveness */
+    .breakdown-drawer {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 12px 14px;
+    }
+    .breakdown-drawer summary {
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 0.88rem;
+      color: var(--text-main);
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .breakdown-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .breakdown-stat-card {
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+      min-width: 0;
+    }
+    .breakdown-bar-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 10px;
+    }
+    .breakdown-bar-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.16);
+      overflow: hidden;
+    }
+    .breakdown-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+    @media (max-width: 480px) {
+      .shop-subnav-bar {
+        grid-template-columns: 1fr 1fr;
+      }
+      .btn-scan-receipt-cta {
+        grid-column: 1 / -1;
+        min-height: 38px;
+      }
+      .staple-chip, .owner-pill, .solo-shopper-toggle {
+        min-height: 34px;
+      }
+      .breakdown-summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
 
     /* Stage Popup */
     .stage-selector-popup {
@@ -1446,22 +1755,25 @@
 
     .toast-container {
       position: fixed;
-      bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+      bottom: calc(82px + env(safe-area-inset-bottom, 0px));
       left: 50%;
       transform: translateX(-50%);
       background: rgba(15, 23, 42, 0.92);
       border: 1px solid var(--emerald);
       color: #f8fafc;
-      padding: 10px 18px;
+      padding: 8px 14px;
       border-radius: var(--radius-full);
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-      font-size: 0.84rem;
+      font-size: 0.78rem;
       font-weight: 600;
       display: none;
       align-items: center;
       gap: 8px;
       z-index: 300;
+      pointer-events: none;
+      max-width: calc(100vw - 24px);
     }
+    .toast-container button, .toast-container a { pointer-events: auto; }
     .toast-container.show { display: flex; }
   </style>
 </head>
@@ -1566,7 +1878,7 @@
   </section>
 
   <!-- ══════════════════════════════════════════════════════
-       TAB 2: GROCERIES (PHASE 2 READY + LOCALSTORAGE CACHED)
+       TAB 2: GROCERIES & ZERO-ENTRY SPLITWISE SUITE
   ══════════════════════════════════════════════════════ -->
   <section id="tab-groceries" class="tab-pane">
     <main class="container">
@@ -1577,82 +1889,259 @@
         <span id="grocery-banner-text">Loading latest list from server...</span>
       </div>
 
-      <!-- Staples / Running Low Quick Bar -->
-      <div>
-        <div class="section-header" style="margin-bottom:8px;">
-          <span>⭐ Staples / Running Low</span>
-          <span style="font-size:0.7rem;">Tap to add</span>
-        </div>
-        <div class="staples-bar" id="staples-quick-bar">
-          <button class="staple-chip" onclick="quickAddStaple('Milk', 'Dairy/Eggs', '1', 'L')">🥛 Milk</button>
-          <button class="staple-chip" onclick="quickAddStaple('Eggs', 'Dairy/Eggs', '12', 'pcs')">🥚 Eggs</button>
-          <button class="staple-chip" onclick="quickAddStaple('Coffee Beans', 'Pantry/Dry', '1', 'pack')">☕ Coffee</button>
-          <button class="staple-chip" onclick="quickAddStaple('Onions', 'Produce', '1', 'kg')">🧅 Onions</button>
-          <button class="staple-chip" onclick="quickAddStaple('Olive Oil', 'Pantry/Dry', '1', 'L')">🫒 Olive Oil</button>
-          <button class="staple-chip" onclick="quickAddStaple('Paper Towels', 'Household', '1', 'pack')">🧻 Paper Towels</button>
-        </div>
-      </div>
-
-      <!-- Quick Add Item Form with Autocomplete -->
-      <form 
-        id="grocery-add-form" 
-        action="javascript:void(0);" 
-        onsubmit="event.preventDefault(); submitQuickGrocery();" 
-        style="width: 100%; max-width: 100%; box-sizing: border-box; position: relative; z-index: 10; margin-top: 6px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px;"
-      >
-        <!-- Row 1: Full-width Item Input + Autocomplete Dropdown -->
-        <div style="position: relative; width: 100%; max-width: 100%; box-sizing: border-box;">
-          <input 
-            type="text" 
-            id="grocery-quick-input" 
-            class="search-input" 
-            placeholder="Add item (e.g. Avocado 2 pcs, Milk 1L)..." 
-            autocomplete="off"
-            enterkeyhint="done"
-            style="width: 100%; max-width: 100%; box-sizing: border-box; flex: none; font-size: 16px !important; min-height: 44px; padding: 10px 14px; border-radius: var(--radius-full);"
-            oninput="handleGroceryAutocomplete(event)"
-            onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitQuickGrocery(); }"
-          >
-          <div id="grocery-autocomplete-list" class="autocomplete-dropdown"></div>
-        </div>
-
-        <!-- Row 2: Category Dropdown (flex: 1) + Add Button (flex-shrink: 0) -->
-        <div style="display: flex; gap: 8px; align-items: center; width: 100%; max-width: 100%; box-sizing: border-box;">
-          <select 
-            id="grocery-category-select" 
-            class="form-control" 
-            style="flex: 1 1 0%; min-width: 0; width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 16px !important; border-radius: var(--radius-full); min-height: 44px;"
-          >
-            <option value="Produce">Produce</option>
-            <option value="Bakery">Bakery</option>
-            <option value="Meat/Fish">Meat/Fish</option>
-            <option value="Dairy/Eggs">Dairy/Eggs</option>
-            <option value="Pantry/Dry">Pantry/Dry</option>
-            <option value="Frozen">Frozen</option>
-            <option value="Household">Household</option>
-          </select>
-          <button 
-            type="submit" 
-            id="btn-grocery-add" 
-            class="btn-add-plant" 
-            style="flex: 0 0 auto; white-space: nowrap; padding: 10px 22px; font-size: 0.95rem; font-weight: 800; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; border-radius: var(--radius-full); cursor: pointer; touch-action: manipulation;"
-          >
-            <span>+</span> Add
-          </button>
-        </div>
-      </form>
-
-      <!-- Action Row: Clear Checked Items & Count -->
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span id="grocery-count-tag" style="font-size:0.8rem; font-weight:700; color:var(--text-muted);">0 items on list</span>
-        <button class="btn-secondary" style="padding:5px 11px; font-size:0.75rem;" onclick="clearCheckedGroceries()">
-          ✓ Clear Checked
+      <!-- Shop / Splitwise Sub-View Switcher + Scan Receipt CTA -->
+      <div class="shop-subnav-bar">
+        <button id="shop-subnav-list" class="shop-subnav-btn active" onclick="switchGroceriesSubview('list')">
+          🛒 Grocery List
+        </button>
+        <button id="shop-subnav-ledger" class="shop-subnav-btn" onclick="switchGroceriesSubview('ledger')">
+          ⚖️ Splitwise Ledger
+        </button>
+        <button class="btn-scan-receipt-cta" onclick="openReceiptScannerModal()">
+          🧾 Scan Receipt
         </button>
       </div>
 
-      <!-- Categorized Grocery Items (Supermarket Order) -->
-      <div id="grocery-items-container" style="display:flex; flex-direction:column; gap:8px;">
-        <!-- Injected via localStorage cache & API -->
+      <!-- Live Continuous Running Balance Strip (Never auto-resets) -->
+      <div class="ledger-balance-pill" id="shop-top-balance-pill" onclick="switchGroceriesSubview('ledger')">
+        <span id="shop-balance-headline">⚖️ Checking apartment ledger...</span>
+        <span style="font-size:0.72rem; color:var(--sky); font-weight:700;">View / Settle →</span>
+      </div>
+
+      <!-- Unified "Brain Dump" Input Bar (Text / Voice / Handwritten List Photo) -->
+      <div class="brain-dump-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:0.74rem; font-weight:800; color:var(--sky); text-transform:uppercase; letter-spacing:0.04em;">
+            ✨ Zero-Entry Brain Dump (Text · Voice · Photo)
+          </span>
+          <button type="button" id="btn-voice-lang" onclick="toggleBrainDumpLang()" style="background:rgba(255,255,255,0.08); border:1px solid var(--card-border); color:var(--text-muted); font-size:0.68rem; padding:2px 7px; border-radius:999px; cursor:pointer;">
+            🌐 en-US
+          </button>
+        </div>
+        <div class="brain-dump-input-row">
+          <input
+            type="text"
+            id="brain-dump-input"
+            class="search-input"
+            placeholder="e.g. Bought milk & eggs for 45, out of trash bags & garlic, log 320 electricity paid by Tamir"
+            class="search-input bidi-text"
+            dir="auto"
+            style="flex:1; min-width:0; font-size:14px; padding:9px 12px; border-radius:var(--radius-full);"
+            onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitBrainDump(); }"
+          >
+          <button type="button" id="btn-brain-dump-mic" class="btn-mic-pulse" onclick="toggleBrainDumpVoice()" title="Voice Input">
+            🎙️
+          </button>
+          <button type="button" id="btn-brain-dump-photo" class="btn-mic-pulse" onclick="document.getElementById('brain-dump-file-input').click()" title="Handwritten List Photo">
+            📷
+          </button>
+          <input type="file" id="brain-dump-file-input" accept="image/*" style="display:none;" onchange="handleBrainDumpPhoto(this)">
+          <button type="button" id="btn-brain-dump-submit" class="btn-add-plant" onclick="submitBrainDump()" style="padding:9px 14px; font-size:0.8rem; border-radius:var(--radius-full); white-space:nowrap;">
+            Run
+          </button>
+        </div>
+        <div id="brain-dump-result-banner" class="bidi-text" dir="auto" style="display:none; font-size:0.76rem; background:rgba(15,23,42,0.75); border:1px solid rgba(16,185,129,0.35); border-radius:var(--radius-sm); padding:8px 10px; color:#d1fae5;"></div>
+      </div>
+
+      <!-- ── SUBVIEW 1: SUPERMARKET WALKING-ORDER GROCERY LIST ── -->
+      <div id="groceries-subview-list" style="display:flex; flex-direction:column; gap:10px;">
+
+        <!-- Depletion Radar Strip ("Running Low Soon" >= 80% cycle) -->
+        <div id="depletion-radar-section" style="display:none;">
+          <div class="section-header" style="margin-bottom:6px;">
+            <span style="color:#fbbf24;">⚡ Depletion Radar · Running Low Soon</span>
+            <span style="font-size:0.7rem;">Tap to add</span>
+          </div>
+          <div class="staples-bar" id="depletion-radar-bar"></div>
+        </div>
+
+        <!-- 1-Click Meal-to-Cart Quick Bar -->
+        <div id="meal-to-cart-section" style="display:none;">
+          <div class="section-header" style="margin-bottom:6px;">
+            <span style="color:#d8b4fe;">🍳 1-Click Meal-to-Cart</span>
+            <span style="font-size:0.7rem;">Uncheck what you have</span>
+          </div>
+          <div class="staples-bar" id="meal-to-cart-quick-bar"></div>
+        </div>
+
+        <!-- Staples / Running Low Quick Bar -->
+        <div>
+          <div class="section-header" style="margin-bottom:8px;">
+            <span>⭐ Staples / Running Low</span>
+            <span style="font-size:0.7rem;">Tap to add</span>
+          </div>
+          <div class="staples-bar" id="staples-quick-bar">
+            <button class="staple-chip" onclick="quickAddStaple('Milk', 'Dairy/Eggs', '1', 'L')">🥛 Milk</button>
+            <button class="staple-chip" onclick="quickAddStaple('Eggs', 'Dairy/Eggs', '12', 'pcs')">🥚 Eggs</button>
+            <button class="staple-chip" onclick="quickAddStaple('Coffee Beans', 'Pantry/Dry', '1', 'pack')">☕ Coffee</button>
+            <button class="staple-chip" onclick="quickAddStaple('Onions', 'Produce', '1', 'kg')">🧅 Onions</button>
+            <button class="staple-chip" onclick="quickAddStaple('Olive Oil', 'Spices/Oils', '1', 'L')">🫒 Olive Oil</button>
+            <button class="staple-chip" onclick="quickAddStaple('Paper Towels', 'Household', '1', 'pack')">🧻 Paper Towels</button>
+          </div>
+        </div>
+
+        <!-- Quick Add Item Form with Autocomplete -->
+        <form 
+          id="grocery-add-form" 
+          action="javascript:void(0);" 
+          onsubmit="event.preventDefault(); submitQuickGrocery();" 
+          style="width: 100%; max-width: 100%; box-sizing: border-box; position: relative; z-index: 10; margin-top: 6px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 8px;"
+        >
+          <!-- Row 1: Full-width Item Input + Autocomplete Dropdown -->
+          <div style="position: relative; width: 100%; max-width: 100%; box-sizing: border-box;">
+            <input 
+              type="text" 
+              id="grocery-quick-input" 
+              class="search-input bidi-text" 
+              dir="auto"
+              placeholder="Add item (e.g. Avocado 2 pcs, עגבניות, חלב 1L)..." 
+              autocomplete="off"
+              enterkeyhint="done"
+              style="width: 100%; max-width: 100%; box-sizing: border-box; flex: none; font-size: 16px !important; min-height: 44px; padding: 10px 14px; border-radius: var(--radius-full);"
+              oninput="handleGroceryAutocomplete(event)"
+              onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitQuickGrocery(); }"
+            >
+            <div id="grocery-autocomplete-list" class="autocomplete-dropdown"></div>
+          </div>
+
+          <!-- Row 2: Supermarket Walking-Order Category Dropdown + Add Button -->
+          <div style="display: flex; gap: 8px; align-items: center; width: 100%; max-width: 100%; box-sizing: border-box;">
+            <select 
+              id="grocery-category-select" 
+              class="form-control" 
+              style="flex: 1 1 0%; min-width: 0; width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 16px !important; border-radius: var(--radius-full); min-height: 44px;"
+            >
+              <option value="">✨ Auto-detect aisle (Smart)</option>
+              <option value="Produce">1. Produce (Fruits &amp; Veggies)</option>
+              <option value="Bakery">2. Bakery</option>
+              <option value="Dairy/Eggs">3. Dairy &amp; Eggs</option>
+              <option value="Meat/Fish">4. Meat &amp; Fish</option>
+              <option value="Pantry/Dry">5. Pantry &amp; Dry Goods</option>
+              <option value="Spices/Oils">6. Spices &amp; Oils</option>
+              <option value="Household">7. Household &amp; Cleaning</option>
+              <option value="Frozen">8. Frozen</option>
+            </select>
+            <button 
+              type="submit" 
+              id="btn-grocery-add" 
+              class="btn-add-plant" 
+              style="flex: 0 0 auto; white-space: nowrap; padding: 10px 22px; font-size: 0.95rem; font-weight: 800; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; border-radius: var(--radius-full); cursor: pointer; touch-action: manipulation;"
+            >
+              <span>+</span> Add
+            </button>
+          </div>
+        </form>
+
+        <!-- Action Row: Count + Solo Shopper Hide/Dim Produce + Clear Checked -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+          <span id="grocery-count-tag" style="font-size:0.8rem; font-weight:700; color:var(--text-muted);">0 items on list</span>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button type="button" id="btn-solo-shopper-toggle" class="solo-shopper-toggle" onclick="toggleSoloShopperProduce()" title="Dim/Hide Produce aisle when Tamir shops solo">
+              🌿 Hide/Dim Produce
+            </button>
+            <button class="btn-secondary" style="padding:5px 11px; font-size:0.75rem;" onclick="clearCheckedGroceries()">
+              ✓ Clear Checked
+            </button>
+          </div>
+        </div>
+
+        <!-- Categorized Grocery Items (8-Aisle Supermarket Walking Order) -->
+        <div id="grocery-items-container" style="display:flex; flex-direction:column; gap:8px;">
+          <!-- Injected via localStorage cache & API -->
+        </div>
+      </div>
+
+      <!-- ── SUBVIEW 2: FULL SPLITWISE REPLACEMENT LEDGER ── -->
+      <div id="groceries-subview-ledger" style="display:none; flex-direction:column; gap:12px;">
+        <div class="ledger-hero-card">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+            <div>
+              <div style="font-size:0.72rem; text-transform:uppercase; font-weight:800; color:var(--text-dim); letter-spacing:0.05em;">
+                Continuous Running Net Balance
+              </div>
+              <div id="ledger-hero-headline" style="font-size:1.3rem; font-weight:800; color:var(--text-main); margin-top:3px;">
+                All Settled Up! ✨
+              </div>
+              <div id="ledger-hero-sub" style="font-size:0.74rem; color:var(--text-muted); margin-top:2px;">
+                Never auto-resets · Only settles when you tap Settle Up
+              </div>
+            </div>
+            <button class="btn-add-plant" onclick="openSettleUpModal()" style="background:linear-gradient(135deg, #10b981, #059669); padding:9px 16px; font-size:0.84rem;">
+              🤝 Settle Up
+            </button>
+          </div>
+
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button class="btn-secondary" onclick="openAddExpenseModal()" style="font-size:0.74rem; padding:6px 10px;">
+              + Log Expense
+            </button>
+            <button class="btn-secondary" onclick="openInitialBalanceModal()" style="font-size:0.74rem; padding:6px 10px;">
+              ⚖️ Starting Balance
+            </button>
+            <button class="btn-secondary" onclick="openSplitwiseImportModal()" style="font-size:0.74rem; padding:6px 10px;">
+              📥 Import Splitwise CSV
+            </button>
+            <button class="btn-secondary" onclick="openLearnedRulesModal()" style="font-size:0.74rem; padding:6px 10px;">
+              🧠 Rules (<span id="ledger-rules-count">0</span>)
+            </button>
+            <button class="btn-secondary" id="btn-export-ledger-csv" onclick="exportLedgerCsv()" style="font-size:0.74rem; padding:6px 10px;">
+              ⬇️ Export CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Recurring Apartment Bills & Takeout Presets -->
+        <div>
+          <div class="section-header" style="margin-bottom:6px;">
+            <span>⚡ Recurring Apartment Bills &amp; Outings</span>
+            <span style="font-size:0.7rem;">1-tap preset</span>
+          </div>
+          <div class="staples-bar wrap-chips" id="recurring-bill-presets-bar">
+            <button class="staple-chip" onclick="openAddExpenseModal('Rent')">🏠 Rent (שכירות)</button>
+            <button class="staple-chip" onclick="openAddExpenseModal('Arnona')">🏛️ Arnona (ארנונה)</button>
+            <button class="staple-chip" onclick="openAddExpenseModal('Electricity')">⚡ Electricity (חשמל)</button>
+            <button class="staple-chip" onclick="openAddExpenseModal('Water')">💧 Water (מים)</button>
+            <button class="staple-chip" onclick="openAddExpenseModal('Internet')">🌐 Internet / Fiber</button>
+            <button class="staple-chip" onclick="openAddExpenseModal('Gas / Vaad Bayit')">🔥 Gas / Vaad Bayit</button>
+            <button class="staple-chip" onclick="openAddExpenseModal('Date Night / Takeout')">🍕 Date Night / Takeout</button>
+          </div>
+        </div>
+
+        <!-- Monthly & Category Spending Breakdown Drawer -->
+        <details id="ledger-breakdown-drawer" class="breakdown-drawer" open>
+          <summary>
+            <span>📊 Monthly &amp; Category Breakdown</span>
+            <span id="breakdown-headline-pill" style="font-family:var(--font-mono); font-size:0.78rem; color:var(--emerald);">₪0.00 total</span>
+          </summary>
+          <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+              <select id="breakdown-month-select" class="form-control" onchange="loadLedgerBreakdown()" style="width:auto; min-width:140px; padding:6px 10px; font-size:0.8rem; min-height:36px;">
+                <option value="all">📅 All Time</option>
+              </select>
+              <button type="button" class="btn-secondary" onclick="exportLedgerCsv()" style="font-size:0.74rem; padding:6px 10px; min-height:36px;">
+                ⬇️ Download CSV
+              </button>
+            </div>
+            <div id="ledger-breakdown-body">
+              <div style="font-size:0.8rem; color:var(--text-dim);">Loading spending breakdown...</div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Active Unsettled Transactions -->
+        <div class="section-header" style="margin-bottom:2px;">
+          <span>📋 Active Unsettled Expenses</span>
+          <span id="ledger-unsettled-count" style="font-size:0.7rem;">0 items</span>
+        </div>
+        <div id="ledger-transactions-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+
+        <!-- Collapsible Settlement History Log -->
+        <details id="settlement-history-details" style="background:rgba(15,23,42,0.55); border:1px solid var(--card-border); border-radius:var(--radius-md); padding:10px 12px;">
+          <summary style="cursor:pointer; font-weight:800; font-size:0.84rem; color:var(--text-muted);">
+            🗂️ Settlement History (<span id="settlement-history-count">0</span>)
+          </summary>
+          <div id="settlement-history-list" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
+        </details>
       </div>
 
     </main>
@@ -2416,6 +2905,270 @@
     </div>
   </div>
 
+  <!-- ── ASYMMETRIC RECEIPT SCANNER & INTERACTIVE REVIEW MODAL ── -->
+  <div class="modal-overlay" id="receipt-scanner-modal">
+    <div class="modal-sheet" style="max-height: 94vh;">
+      <div class="modal-header">
+        <div class="modal-title">🧾 Receipt Scanner &amp; Splitter</div>
+        <button class="btn-close-modal" onclick="closeModal('receipt-scanner-modal')">&times;</button>
+      </div>
+      <div class="modal-body" style="gap:12px;">
+        <!-- Step 1: Upload & Paid By -->
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <div style="flex:1; min-width:140px;">
+            <label style="font-size:0.72rem; color:var(--text-dim); font-weight:700; display:block; margin-bottom:4px;">Who Paid?</label>
+            <select id="receipt-paid-by" class="form-control" onchange="recalculateReceiptReview()" style="padding:8px 10px; font-size:0.84rem;">
+              <option value="Tamir">🌿 Tamir Paid</option>
+              <option value="Mikush">🌸 Mikush Paid</option>
+            </select>
+          </div>
+          <div style="flex:1.5; min-width:170px;">
+            <label style="font-size:0.72rem; color:var(--text-dim); font-weight:700; display:block; margin-bottom:4px;">Receipt / Wolt / Utility Bill</label>
+            <input type="file" id="receipt-file-input" accept="image/*" style="display:none;" onchange="handleReceiptFileSelected(this)">
+            <button type="button" class="btn-primary" onclick="document.getElementById('receipt-file-input').click()" style="width:100%; padding:9px 12px; font-size:0.84rem;">
+              📸 Upload / Snap Photo
+            </button>
+          </div>
+        </div>
+
+        <details id="receipt-text-fallback-details" style="background:rgba(15,23,42,0.55); border:1px solid var(--card-border); border-radius:var(--radius-md); padding:8px 10px;">
+          <summary style="cursor:pointer; font-size:0.76rem; font-weight:700; color:var(--text-muted);">
+            📋 Paste Receipt Text (Offline / No-Key Fallback)
+          </summary>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+            <textarea id="receipt-text-input" class="form-control bidi-text" dir="auto" rows="3" placeholder="e.g.&#10;עגבניות שרי 12.90&#10;מבצע שרי -3.00&#10;חלב תנובה 3% 6.90"></textarea>
+            <button type="button" class="btn-secondary" id="btn-parse-receipt-text" onclick="parseReceiptTextFromModal()" style="align-self:flex-end; font-size:0.78rem; padding:6px 12px;">
+              ✨ Parse Text Receipt
+            </button>
+          </div>
+        </details>
+
+        <div id="receipt-loading-state" style="display:none; text-align:center; padding:18px; color:var(--sky); font-weight:700; font-size:0.86rem;">
+          ✨ Gemini 2.5 Flash is reading items, promotions (מבצע), weights &amp; produce splits...
+        </div>
+        <div id="receipt-error-state" style="display:none; background:rgba(244,63,94,0.14); border:1px solid rgba(244,63,94,0.4); color:#fda4af; border-radius:var(--radius-md); padding:10px 12px; font-size:0.8rem;"></div>
+
+        <!-- Step 2: Interactive Review -->
+        <div id="receipt-review-container" style="display:none; flex-direction:column; gap:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+            <div>
+              <div id="receipt-merchant-name" style="font-weight:800; font-size:1rem;">Supermarket</div>
+              <div style="font-size:0.72rem; color:var(--text-muted);">Tap any item's pill to flip (50/50 ↔ 🌸 Mikush ↔ 🌿 Tamir) &amp; teach permanently</div>
+            </div>
+            <div id="receipt-total-badge" style="font-family:var(--font-mono); font-weight:800; font-size:1.05rem; color:var(--emerald);">₪0.00</div>
+          </div>
+
+          <!-- Split Summary Grid -->
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; text-align:center;">
+            <div style="background:rgba(99,102,241,0.14); border:1px solid rgba(129,140,248,0.35); border-radius:var(--radius-sm); padding:6px;">
+              <div style="font-size:0.66rem; color:#c7d2fe; font-weight:700;">50/50 Shared</div>
+              <div id="rec-sum-5050" style="font-family:var(--font-mono); font-weight:800; font-size:0.86rem;">₪0.00</div>
+            </div>
+            <div style="background:rgba(236,72,153,0.14); border:1px solid rgba(244,114,182,0.35); border-radius:var(--radius-sm); padding:6px;">
+              <div style="font-size:0.66rem; color:#fbcfe8; font-weight:700;">🌸 Mikush 100%</div>
+              <div id="rec-sum-mikush" style="font-family:var(--font-mono); font-weight:800; font-size:0.86rem;">₪0.00</div>
+            </div>
+            <div style="background:rgba(16,185,129,0.14); border:1px solid rgba(52,211,153,0.35); border-radius:var(--radius-sm); padding:6px;">
+              <div style="font-size:0.66rem; color:#a7f3d0; font-weight:700;">🌿 Tamir 100%</div>
+              <div id="rec-sum-tamir" style="font-family:var(--font-mono); font-weight:800; font-size:0.86rem;">₪0.00</div>
+            </div>
+          </div>
+
+          <div id="receipt-net-impact-banner" style="background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.35); border-radius:var(--radius-sm); padding:7px 10px; font-size:0.78rem; font-weight:700; color:var(--sky); text-align:center;"></div>
+
+          <div id="receipt-matched-groceries-banner" style="display:none; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); border-radius:var(--radius-sm); padding:7px 10px; font-size:0.75rem; color:#a7f3d0;"></div>
+
+          <div id="receipt-items-list" style="display:flex; flex-direction:column; gap:7px;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('receipt-scanner-modal')">Cancel</button>
+        <button class="btn-primary" id="btn-commit-receipt" style="display:none;" onclick="commitReviewedReceipt()">✓ Commit &amp; Cross Off Groceries</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 1-CLICK MEAL-TO-CART MODAL ── -->
+  <div class="modal-overlay" id="meal-to-cart-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title" id="mtc-modal-title">🍳 Meal-to-Cart</div>
+        <button class="btn-close-modal" onclick="closeModal('meal-to-cart-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="mtc-meal-id" value="">
+        <p style="font-size:0.78rem; color:var(--text-muted);">
+          Uncheck anything you already have in the kitchen. Missing items are pushed straight into their supermarket aisle!
+        </p>
+        <div id="mtc-ingredients-list" style="display:flex; flex-direction:column; gap:7px; margin-top:8px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('meal-to-cart-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitMealToCart()">🛒 Push Missing to Cart</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LOG MANUAL EXPENSE / BILL MODAL ── -->
+  <div class="modal-overlay" id="ledger-expense-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">⚖️ Log Expense / Bill</div>
+        <button class="btn-close-modal" onclick="closeModal('ledger-expense-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Description *</label>
+          <input type="text" id="tx-input-desc" class="form-control" placeholder="e.g. Monthly Rent, Electricity Bill, Wolt Sushi">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Amount (₪) *</label>
+            <input type="number" step="0.01" id="tx-input-amount" class="form-control" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="tx-input-category" class="form-control">
+              <option value="Rent">🏠 Rent (שכירות)</option>
+              <option value="Arnona">🏛️ Arnona (ארנונה)</option>
+              <option value="Electricity">⚡ Electricity (חשמל)</option>
+              <option value="Water">💧 Water (מים)</option>
+              <option value="Internet">🌐 Internet / Fiber</option>
+              <option value="Gas / Vaad Bayit">🔥 Gas / Vaad Bayit (גז / ועד בית)</option>
+              <option value="Date Night / Takeout">🍕 Date Night / Takeout</option>
+              <option value="Groceries">🛒 Groceries</option>
+              <option value="Produce">🍅 Produce (Mikush 100%)</option>
+              <option value="Household">🧹 Household</option>
+              <option value="Other">📦 Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Paid By</label>
+            <select id="tx-input-paid-by" class="form-control">
+              <option value="Tamir">🌿 Tamir</option>
+              <option value="Mikush">🌸 Mikush</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Split Rule</label>
+            <select id="tx-input-split" class="form-control">
+              <option value="SHARED_50_50">🤝 50 / 50 Split</option>
+              <option value="MIKUSH_100">🌸 100% Mikush</option>
+              <option value="TAMIR_100">🌿 100% Tamir</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('ledger-expense-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitLedgerExpense()">Save to Ledger</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SETTLE UP MODAL (FULL OR PARTIAL) ── -->
+  <div class="modal-overlay" id="settle-up-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">🤝 Settle Up Apartment Balance</div>
+        <button class="btn-close-modal" onclick="closeModal('settle-up-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="settle-up-summary-box" style="background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); border-radius:var(--radius-md); padding:10px 12px; font-size:0.84rem; font-weight:700; margin-bottom:10px;"></div>
+        <div class="form-group">
+          <label>Settlement Amount (₪) — leave full amount to zero &amp; archive</label>
+          <input type="number" step="0.01" id="settle-input-amount" class="form-control" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label>Note (Optional)</label>
+          <input type="text" id="settle-input-note" class="form-control" placeholder="e.g. Bit / Paybox transfer">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('settle-up-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitSettleUp()">Confirm Settle Up</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SET STARTING BALANCE MODAL ── -->
+  <div class="modal-overlay" id="initial-balance-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">⚖️ Set Starting Balance</div>
+        <button class="btn-close-modal" onclick="closeModal('initial-balance-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:10px;">
+          Migrate your existing balance in one click without importing old receipts.
+        </p>
+        <div class="form-group">
+          <label>Who is ahead (owed money)?</label>
+          <select id="init-bal-ahead" class="form-control">
+            <option value="Tamir">🌿 Tamir is ahead (Mikush owes Tamir)</option>
+            <option value="Mikush">🌸 Mikush is ahead (Tamir owes Mikush)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Amount Ahead (₪)</label>
+          <input type="number" step="0.01" id="init-bal-amount" class="form-control" placeholder="e.g. 250.00">
+        </div>
+        <div class="form-group">
+          <label>Note</label>
+          <input type="text" id="init-bal-note" class="form-control" value="Splitwise starting balance migration">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('initial-balance-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitInitialBalance()">Set Starting Balance</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SPLITWISE CSV IMPORTER MODAL ── -->
+  <div class="modal-overlay" id="splitwise-import-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">📥 Import Splitwise CSV</div>
+        <button class="btn-close-modal" onclick="closeModal('splitwise-import-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:10px;">
+          Export your group from Splitwise as <code>.csv</code> and upload it here. Duplicate rows are automatically skipped.
+        </p>
+        <div class="form-group">
+          <label>Choose Splitwise CSV File</label>
+          <input type="file" id="splitwise-csv-file" accept=".csv,text/csv" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('splitwise-import-modal')">Cancel</button>
+        <button class="btn-primary" onclick="submitSplitwiseImport()">Import Transactions</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LEARNED ITEM RULES MODAL ── -->
+  <div class="modal-overlay" id="learned-rules-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">🧠 Learned Item Split Rules</div>
+        <button class="btn-close-modal" onclick="closeModal('learned-rules-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:10px;">
+          Whenever you flip an item's owner on a scanned receipt, it is saved here permanently for future scans.
+        </p>
+        <div id="learned-rules-list" style="display:flex; flex-direction:column; gap:7px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="closeModal('learned-rules-modal')">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── ADD DATE SPOT MODAL ── -->
   <div class="modal-overlay" id="add-date-spot-modal">
     <div class="modal-sheet">
@@ -3149,6 +3902,9 @@
 
         renderGroceries();
         startGroceryPolling();
+        loadDepletionRadar();
+        loadLedgerSummary();
+        loadMealToCartBar();
       } catch (err) {
         console.warn("Grocery fetch notice:", err);
         banner.style.display = 'flex';
@@ -3192,8 +3948,19 @@
         return;
       }
 
-      // Group in supermarket walk-through layout order
-      const categoriesOrder = ["Produce", "Bakery", "Meat/Fish", "Dairy/Eggs", "Pantry/Dry", "Frozen", "Household", "Other"];
+      // Group in physical 8-aisle supermarket walking-order layout
+      const categoriesOrder = ["Produce", "Bakery", "Dairy/Eggs", "Meat/Fish", "Pantry/Dry", "Spices/Oils", "Household", "Frozen", "Other"];
+      const aisleLabels = {
+        "Produce": "1. Produce (Fruits & Veggies)",
+        "Bakery": "2. Bakery",
+        "Dairy/Eggs": "3. Dairy & Eggs",
+        "Meat/Fish": "4. Meat & Fish",
+        "Pantry/Dry": "5. Pantry & Dry Goods",
+        "Spices/Oils": "6. Spices & Oils",
+        "Household": "7. Household & Cleaning",
+        "Frozen": "8. Frozen",
+        "Other": "Other"
+      };
       const grouped = {};
       const checkedItems = [];
 
@@ -3212,22 +3979,60 @@
       // Active items grouped by supermarket aisle
       categoriesOrder.forEach(cat => {
         if (grouped[cat] && grouped[cat].length > 0) {
-          html += `<div class="grocery-category-header">${getCategoryIcon(cat)} ${cat} (${grouped[cat].length})</div>`;
+          const isSoloDimmedProduce = (cat === 'Produce' && soloShopperHideProduce && !produceTemporarilyExpanded);
+          if (isSoloDimmedProduce) {
+            const mikushSpecific = grouped[cat].filter(it => it.for_member === 'Mikush');
+            html += `
+              <div class="produce-dimmed-banner" onclick="expandDimmedProduceOnce()">
+                <span>🥬 1. Produce (${grouped[cat].length} item${grouped[cat].length === 1 ? '' : 's'} dimmed for Solo Tamir)</span>
+                <span style="color:var(--sky); font-weight:700;">Tap to expand</span>
+              </div>
+            `;
+            if (mikushSpecific.length > 0) {
+              mikushSpecific.forEach(item => {
+                const qtyStr = item.amount ? `${item.amount} ${item.unit || ''}`.trim() : (item.unit || '');
+                html += `
+                  <div class="grocery-item-card" id="grocery-item-${item.id}" style="border-color:rgba(236,72,153,0.45);">
+                    <div class="grocery-left" onclick="toggleGroceryCheck(${item.id}, event)">
+                      <div class="grocery-checkbox" title="Tap to check off"></div>
+                      <div style="min-width:0; flex:1;">
+                        <span class="grocery-name bidi-text" dir="auto">${escapeHtml(item.name)}</span>
+                        ${qtyStr ? `<span class="grocery-qty">${escapeHtml(qtyStr)}</span>` : ''}
+                        <span class="user-pill pill-mikush" style="margin-left:4px;">🌸 For Mikush</span>
+                      </div>
+                    </div>
+                    <button class="btn-log-action" onclick="deleteGroceryItem(${item.id})" title="Delete item">🗑️</button>
+                  </div>
+                `;
+              });
+            }
+            return;
+          }
+
+          html += `<div class="grocery-category-header">${getCategoryIcon(cat)} ${aisleLabels[cat] || cat} (${grouped[cat].length})</div>`;
           grouped[cat].forEach(item => {
             const qtyStr = item.amount ? `${item.amount} ${item.unit || ''}`.trim() : (item.unit || '');
             const userPill = item.added_by === 'Mikush' ?
               `<span class="user-pill pill-mikush">🌸 Mikush</span>` :
               `<span class="user-pill pill-tamir">🌿 Tamir</span>`;
+            const isDimmed = (cat === 'Produce' && soloShopperHideProduce);
+            const splitBadge = (item.default_split === 'MIKUSH_100')
+              ? `<span class="receipt-badge-tag" style="background:rgba(236,72,153,0.18); color:#fbcfe8;">🌸 100%</span>`
+              : (cat === 'Produce' && item.default_split === 'SHARED_50_50'
+                  ? `<span class="receipt-badge-tag" style="background:rgba(99,102,241,0.18); color:#c7d2fe;">🤝 50/50</span>`
+                  : '');
             html += `
-              <div class="grocery-item-card" id="grocery-item-${item.id}">
+              <div class="grocery-item-card" id="grocery-item-${item.id}" style="${isDimmed ? 'opacity:0.55;' : ''}">
                 <div class="grocery-left" onclick="toggleGroceryCheck(${item.id}, event)">
                   <div class="grocery-checkbox" title="Tap to check off"></div>
-                  <div>
-                    <span class="grocery-name">${escapeHtml(item.name)}</span>
+                  <div style="min-width:0; flex:1;">
+                    <span class="grocery-name bidi-text" dir="auto">${escapeHtml(item.name)}</span>
                     ${qtyStr ? `<span class="grocery-qty">${escapeHtml(qtyStr)}</span>` : ''}
+                    ${splitBadge}
+                    ${item.for_member === 'Mikush' ? `<span class="user-pill pill-mikush" style="margin-left:4px;">🌸 For Mikush</span>` : ''}
                   </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px;">
+                <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
                   ${userPill}
                   <button class="btn-log-action" onclick="deleteGroceryItem(${item.id})" title="Delete item">🗑️</button>
                 </div>
@@ -3249,12 +4054,12 @@
             <div class="grocery-item-card checked" id="grocery-item-${item.id}">
               <div class="grocery-left" onclick="toggleGroceryCheck(${item.id}, event)">
                 <div class="grocery-checkbox checked" title="Tap to uncheck">✓</div>
-                <div>
-                  <span class="grocery-name">${escapeHtml(item.name)}</span>
+                <div style="min-width:0; flex:1;">
+                  <span class="grocery-name bidi-text" dir="auto">${escapeHtml(item.name)}</span>
                   ${qtyStr ? `<span class="grocery-qty">${escapeHtml(qtyStr)}</span>` : ''}
                 </div>
               </div>
-              <div style="display:flex; align-items:center; gap:8px;">
+              <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
                 ${userPill}
                 <button class="btn-log-action" onclick="deleteGroceryItem(${item.id})" title="Delete item">🗑️</button>
               </div>
@@ -3270,11 +4075,12 @@
       const icons = {
         'Produce': '🥬',
         'Bakery': '🥖',
-        'Meat/Fish': '🥩',
         'Dairy/Eggs': '🧀',
+        'Meat/Fish': '🥩',
         'Pantry/Dry': '🌾',
-        'Frozen': '❄️',
+        'Spices/Oils': '🫒',
         'Household': '🧹',
+        'Frozen': '❄️',
         'Other': '📦'
       };
       return icons[cat] || '📦';
@@ -3345,6 +4151,7 @@
           if (idx !== -1) groceryItems[idx] = data.item;
           lastGroceryUpdate = data.item.updated_at;
           localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
+          renderGroceries();
         }
       } catch (err) {
         console.warn("Add staple error:", err);
@@ -3390,24 +4197,25 @@
       closeAutocomplete();
 
       const parsed = parseGroceryInput(rawText);
-      const category = presetCategory || catSelect.value || 'Produce';
+      const selectedCat = presetCategory || (catSelect ? catSelect.value : '') || null;
       const unit = presetUnit || parsed.unit || null;
 
       const payload = {
         name: parsed.name,
         amount: parsed.amount,
         unit: unit,
-        category: category,
+        category: selectedCat,
         added_by: currentProfile
       };
 
       input.value = '';
 
-      // Optimistic insert
+      // Optimistic insert (refined immediately with backend dictionary classification)
       const tempId = Date.now();
       groceryItems.unshift({
         id: tempId,
         ...payload,
+        category: selectedCat || 'Pantry/Dry',
         is_checked: false,
         created_at: new Date().toISOString()
       });
@@ -3427,6 +4235,7 @@
           if (idx !== -1) groceryItems[idx] = data.item;
           lastGroceryUpdate = data.item.updated_at;
           localStorage.setItem('apartment_grocery_cache', JSON.stringify(groceryItems));
+          renderGroceries();
         }
       } catch (err) {
         console.warn("Add grocery error:", err);
@@ -3435,7 +4244,8 @@
 
     // Autocomplete Handler
     function handleGroceryAutocomplete(e) {
-      const q = e.target.value.trim();
+      const inputEl = e.target;
+      const q = inputEl.value.trim();
       const drop = document.getElementById('grocery-autocomplete-list');
       clearTimeout(autocompleteTimeout);
 
@@ -3445,10 +4255,18 @@
       }
 
       autocompleteTimeout = setTimeout(async () => {
+        if (!inputEl || inputEl.value.trim() !== q) {
+          closeAutocomplete();
+          return;
+        }
         try {
           const res = await fetch(`/groceries/api/autocomplete?q=${encodeURIComponent(q)}`, { headers: getAuthHeaders() });
           if (!res.ok) return;
           const data = await res.json();
+          if (!inputEl || inputEl.value.trim() !== q) {
+            closeAutocomplete();
+            return;
+          }
           const items = data.suggestions || [];
           if (items.length === 0) {
             closeAutocomplete();
@@ -3457,7 +4275,7 @@
 
           drop.innerHTML = items.map(it => `
             <div class="autocomplete-item" onclick="selectAutocomplete('${escapeHtml(it.name)}', '${escapeHtml(it.category || 'Produce')}', '${escapeHtml(it.unit || '')}')">
-              <span><strong>${escapeHtml(it.name)}</strong> <small style="color:var(--text-dim);">(${escapeHtml(it.category)})</small></span>
+              <span class="bidi-text" dir="auto"><strong>${escapeHtml(it.name)}</strong> <small style="color:var(--text-dim);">(${escapeHtml(it.category)})</small></span>
               <span style="font-size:0.75rem; color:var(--emerald);">+ Tap to add</span>
             </div>
           `).join('');
@@ -3474,8 +4292,12 @@
     }
 
     function closeAutocomplete() {
+      clearTimeout(autocompleteTimeout);
       const drop = document.getElementById('grocery-autocomplete-list');
-      if (drop) drop.style.display = 'none';
+      if (drop) {
+        drop.style.display = 'none';
+        drop.innerHTML = '';
+      }
     }
 
     // Delete item with 5-Second Toast Undo
@@ -3668,6 +4490,7 @@
               </div>
             </div>
             <div style="display:flex; align-items:center; gap:6px;">
+              <button class="btn-secondary" style="padding:4px 9px; font-size:0.72rem; border-color:rgba(168,85,247,0.45); color:#e9d5ff;" onclick="openMealToCartModal(${m.id})">🛒 To Cart</button>
               <button class="btn-secondary" style="padding:4px 9px; font-size:0.72rem;" onclick="openCreateMealModal(${m.id})">⚙️ Edit</button>
             </div>
           </div>
@@ -3903,7 +4726,7 @@
       row.style.cssText = 'display:grid; grid-template-columns: 2fr 1fr 1fr 1.5fr auto; gap:6px; align-items:center;';
 
       const unitOptions = ["pcs", "g", "kg", "ml", "L", "pack"].map(u => `<option value="${u}" ${u === unit ? 'selected' : ''}>${u}</option>`).join('');
-      const catOptions = ["Produce", "Bakery", "Meat/Fish", "Dairy/Eggs", "Pantry/Dry", "Frozen", "Household"].map(c => `<option value="${c}" ${c === cat ? 'selected' : ''}>${c}</option>`).join('');
+      const catOptions = ["Produce", "Bakery", "Dairy/Eggs", "Meat/Fish", "Pantry/Dry", "Spices/Oils", "Household", "Frozen"].map(c => `<option value="${c}" ${c === cat ? 'selected' : ''}>${c}</option>`).join('');
 
       row.innerHTML = `
         <input type="text" class="form-control ing-name" placeholder="Item name" value="${escapeHtml(name)}" style="padding:6px 8px; font-size:0.8rem;">
@@ -4485,8 +5308,24 @@
       }
     }
 
-    function openModal(id) { document.getElementById(id).classList.add('open'); }
-    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+    function openModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('open');
+    }
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('open');
+    }
+    document.addEventListener('click', (e) => {
+      if (e.target && e.target.classList && e.target.classList.contains('modal-overlay')) {
+        e.target.classList.remove('open');
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+      }
+    });
 
     function escapeHtml(str) {
       if (!str) return '';
@@ -6633,15 +7472,865 @@
       }
     }
 
+    // ---------- ZERO-ENTRY SUITE: SOLO SHOPPER, RADAR, MEAL-TO-CART, BRAIN DUMP, RECEIPT SCANNER & SPLITWISE LEDGER ----------
+    let soloShopperHideProduce = localStorage.getItem('solo_shopper_hide_produce') === '1';
+    let produceTemporarilyExpanded = false;
+    let currentGroceriesSubview = 'list';
+    let ledgerSummaryData = null;
+    let currentReceiptReview = null;
+    let brainDumpRecognition = null;
+    let brainDumpLang = localStorage.getItem('brain_dump_lang') || 'en-US';
+
+    function updateSoloShopperBtnUI() {
+      const btn = document.getElementById('btn-solo-shopper-toggle');
+      if (btn) {
+        btn.classList.toggle('active', soloShopperHideProduce);
+        btn.innerText = soloShopperHideProduce ? '🌿 Solo: Produce Dimmed' : '🌿 Hide/Dim Produce';
+      }
+    }
+
+    function toggleSoloShopperProduce() {
+      soloShopperHideProduce = !soloShopperHideProduce;
+      produceTemporarilyExpanded = false;
+      localStorage.setItem('solo_shopper_hide_produce', soloShopperHideProduce ? '1' : '0');
+      updateSoloShopperBtnUI();
+      renderGroceries();
+      showToast(soloShopperHideProduce ? '🌿 Solo Shopper: Produce aisle dimmed' : '🥬 Showing all aisles');
+    }
+
+    function expandDimmedProduceOnce() {
+      produceTemporarilyExpanded = true;
+      renderGroceries();
+    }
+
+    function switchGroceriesSubview(view) {
+      currentGroceriesSubview = (view === 'ledger') ? 'ledger' : 'list';
+      const listPane = document.getElementById('groceries-subview-list');
+      const ledgerPane = document.getElementById('groceries-subview-ledger');
+      const btnList = document.getElementById('shop-subnav-list');
+      const btnLedger = document.getElementById('shop-subnav-ledger');
+
+      if (listPane) listPane.style.display = currentGroceriesSubview === 'list' ? 'flex' : 'none';
+      if (ledgerPane) ledgerPane.style.display = currentGroceriesSubview === 'ledger' ? 'flex' : 'none';
+      if (btnList) btnList.classList.toggle('active', currentGroceriesSubview === 'list');
+      if (btnLedger) btnLedger.classList.toggle('active', currentGroceriesSubview === 'ledger');
+
+      if (currentGroceriesSubview === 'ledger') {
+        loadLedgerSummary();
+      }
+    }
+
+    // 1. Depletion Radar ("Running Low Soon" >= 80% cycle)
+    async function loadDepletionRadar() {
+      try {
+        const res = await fetch('/groceries/api/depletion-radar', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        const items = data.radar_items || [];
+        const section = document.getElementById('depletion-radar-section');
+        const bar = document.getElementById('depletion-radar-bar');
+        if (!section || !bar) return;
+
+        if (items.length === 0) {
+          section.style.display = 'none';
+          return;
+        }
+        section.style.display = 'block';
+        bar.innerHTML = items.map(it => `
+          <button class="radar-chip" data-name="${escapeHtml(it.name)}" data-category="${escapeHtml(it.category)}" data-amount="${it.default_amount != null ? escapeHtml(String(it.default_amount)) : ''}" data-unit="${escapeHtml(it.default_unit || '')}" onclick="quickAddStaple(this.dataset.name, this.dataset.category, this.dataset.amount || null, this.dataset.unit || ''); setTimeout(loadDepletionRadar, 400);" title="${escapeHtml(it.status_label)}">
+            <span>${escapeHtml(it.icon_emoji || '⚡')}</span>
+            <span class="bidi-text" dir="auto">${escapeHtml(it.name)}</span>
+            <span style="opacity:0.8; font-size:0.68rem;">${it.cycle_pct}%</span>
+          </button>
+        `).join('');
+      } catch (err) {
+        console.warn('Depletion radar notice:', err);
+      }
+    }
+
+    // 2. 1-Click Meal-to-Cart
+    async function loadMealToCartBar() {
+      try {
+        const res = await fetch('/meals/api/meals', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        const meals = data.meals || [];
+        const section = document.getElementById('meal-to-cart-section');
+        const bar = document.getElementById('meal-to-cart-quick-bar');
+        if (!section || !bar) return;
+        if (meals.length === 0) {
+          section.style.display = 'none';
+          return;
+        }
+        section.style.display = 'block';
+        bar.innerHTML = meals.map(m => `
+          <button class="meal-cart-chip" onclick="openMealToCartModal(${m.id})">
+            <span>🍳</span>
+            <span>${escapeHtml(m.title)}</span>
+          </button>
+        `).join('');
+      } catch (err) {}
+    }
+
+    async function openMealToCartModal(mealId) {
+      try {
+        const res = await fetch(`/meals/api/meals/${mealId}/cart-preview`, { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('Failed to load meal ingredients');
+        const data = await res.json();
+
+        document.getElementById('mtc-meal-id').value = mealId;
+        document.getElementById('mtc-modal-title').innerText = `🍳 ${data.meal.title} → Cart`;
+        const listEl = document.getElementById('mtc-ingredients-list');
+
+        if (!data.ingredients || data.ingredients.length === 0) {
+          listEl.innerHTML = `<div style="font-size:0.82rem; color:var(--text-dim);">No ingredients saved for this meal yet.</div>`;
+        } else {
+          listEl.innerHTML = data.ingredients.map(ing => {
+            const qty = ing.amount ? `${ing.amount} ${ing.unit || ''}`.trim() : (ing.unit || '');
+            return `
+              <label style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px 10px; background:rgba(30,41,59,0.6); border:1px solid var(--card-border); border-radius:var(--radius-sm); cursor:pointer;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <input type="checkbox" class="mtc-ing-chk" value="${ing.id}" ${ing.already_on_grocery_list ? '' : 'checked'} style="width:18px; height:18px; accent-color:var(--emerald);">
+                  <div>
+                    <div style="font-weight:700; font-size:0.86rem;">${escapeHtml(ing.ingredient_name)} ${qty ? `<span style="color:var(--sky); font-family:var(--font-mono); font-size:0.75rem;">${escapeHtml(qty)}</span>` : ''}</div>
+                    <div style="font-size:0.7rem; color:var(--text-dim);">${getCategoryIcon(ing.category)} ${escapeHtml(ing.category)}</div>
+                  </div>
+                </div>
+                ${ing.already_on_grocery_list ? `<span class="receipt-badge-tag" style="background:rgba(16,185,129,0.2); color:#a7f3d0;">Already on list</span>` : ''}
+              </label>
+            `;
+          }).join('');
+        }
+        openModal('meal-to-cart-modal');
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function submitMealToCart() {
+      const mealId = document.getElementById('mtc-meal-id').value;
+      const checkedBoxes = Array.from(document.querySelectorAll('.mtc-ing-chk:checked'));
+      const ingredientIds = checkedBoxes.map(b => parseInt(b.value));
+
+      try {
+        const res = await fetch(`/meals/api/meals/${mealId}/push-to-cart`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ ingredient_ids: ingredientIds, multiplier: 1.0 })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to push ingredients');
+        closeModal('meal-to-cart-modal');
+        showToast(data.message || `Pushed ${data.pushed_count} item(s) to Grocery List!`);
+        if (currentTab !== 'groceries') {
+          switchTab('groceries');
+        } else {
+          loadGroceries();
+        }
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    // 3. Unified "Brain Dump" Input Bar (Text, Voice & Handwritten List Photo)
+    function toggleBrainDumpLang() {
+      brainDumpLang = (brainDumpLang === 'en-US') ? 'he-IL' : 'en-US';
+      localStorage.setItem('brain_dump_lang', brainDumpLang);
+      const btn = document.getElementById('btn-voice-lang');
+      if (btn) btn.innerText = `🌐 ${brainDumpLang}`;
+    }
+
+    function toggleBrainDumpVoice() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert('Voice input requires a browser supporting Web Speech API (Chrome / Safari). You can type or upload a photo instead.');
+        return;
+      }
+      const micBtn = document.getElementById('btn-brain-dump-mic');
+      if (brainDumpRecognition) {
+        brainDumpRecognition.stop();
+        brainDumpRecognition = null;
+        if (micBtn) micBtn.classList.remove('recording');
+        return;
+      }
+
+      const rec = new SpeechRecognition();
+      rec.lang = brainDumpLang;
+      rec.interimResults = true;
+      rec.continuous = false;
+      brainDumpRecognition = rec;
+      if (micBtn) micBtn.classList.add('recording');
+
+      rec.onresult = (event) => {
+        const transcript = Array.from(event.results).map(r => r[0].transcript).join(' ');
+        const input = document.getElementById('brain-dump-input');
+        if (input) input.value = transcript;
+      };
+      rec.onerror = () => {
+        if (micBtn) micBtn.classList.remove('recording');
+        brainDumpRecognition = null;
+      };
+      rec.onend = () => {
+        if (micBtn) micBtn.classList.remove('recording');
+        brainDumpRecognition = null;
+        const val = (document.getElementById('brain-dump-input')?.value || '').trim();
+        if (val) submitBrainDump();
+      };
+      rec.start();
+    }
+
+    async function handleBrainDumpPhoto(inputEl) {
+      const file = inputEl.files && inputEl.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('file', file);
+      const extraText = (document.getElementById('brain-dump-input')?.value || '').trim();
+      if (extraText) formData.append('text', extraText);
+
+      await _runBrainDumpFetch(formData, true);
+      inputEl.value = '';
+    }
+
+    async function submitBrainDump() {
+      const input = document.getElementById('brain-dump-input');
+      const text = (input?.value || '').trim();
+      if (!text) return;
+      await _runBrainDumpFetch(JSON.stringify({ text }), false);
+    }
+
+    async function _runBrainDumpFetch(body, isMultipart) {
+      const btn = document.getElementById('btn-brain-dump-submit');
+      const banner = document.getElementById('brain-dump-result-banner');
+      if (btn) { btn.disabled = true; btn.innerText = '...'; }
+      if (banner) { banner.style.display = 'block'; banner.innerText = '✨ Gemini is parsing your Brain Dump...'; }
+
+      try {
+        const headers = { 'X-Apartment-User': currentProfile };
+        if (!isMultipart) headers['Content-Type'] = 'application/json';
+        const res = await fetch('/api/brain-dump', {
+          method: 'POST',
+          headers,
+          body
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Brain Dump failed');
+        }
+        const input = document.getElementById('brain-dump-input');
+        if (input) input.value = '';
+
+        const parts = [];
+        if (data.checked_off && data.checked_off.length) parts.push(`✓ Checked off: ${data.checked_off.join(', ')}`);
+        if (data.added_items && data.added_items.length) parts.push(`+ Added: ${data.added_items.map(i => i.name).join(', ')}`);
+        if (data.logged_expenses && data.logged_expenses.length) parts.push(`₪ Logged: ${data.logged_expenses.map(e => `${e.description} (₪${e.amount})`).join(', ')}`);
+        if (banner) {
+          banner.style.display = 'block';
+          banner.innerText = parts.length ? parts.join(' · ') : (data.summary_message || 'Done!');
+        }
+        showToast(data.summary_message || 'Brain Dump executed!');
+        await loadGroceries();
+      } catch (err) {
+        if (banner) {
+          banner.style.display = 'block';
+          banner.innerText = `⚠️ ${err.message}`;
+        }
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerText = 'Run'; }
+      }
+    }
+
+    // 4. Asymmetric Receipt Scanner & Interactive Review
+    function openReceiptScannerModal() {
+      const paidSel = document.getElementById('receipt-paid-by');
+      if (paidSel) paidSel.value = currentProfile;
+      document.getElementById('receipt-loading-state').style.display = 'none';
+      document.getElementById('receipt-error-state').style.display = 'none';
+      if (!currentReceiptReview) {
+        document.getElementById('receipt-review-container').style.display = 'none';
+        document.getElementById('btn-commit-receipt').style.display = 'none';
+      }
+      openModal('receipt-scanner-modal');
+    }
+
+    async function handleReceiptFileSelected(inputEl) {
+      const file = inputEl.files && inputEl.files[0];
+      if (!file) return;
+
+      const loadingEl = document.getElementById('receipt-loading-state');
+      const errEl = document.getElementById('receipt-error-state');
+      const reviewEl = document.getElementById('receipt-review-container');
+      const commitBtn = document.getElementById('btn-commit-receipt');
+
+      loadingEl.style.display = 'block';
+      errEl.style.display = 'none';
+      reviewEl.style.display = 'none';
+      commitBtn.style.display = 'none';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('paid_by', document.getElementById('receipt-paid-by').value || currentProfile);
+
+        const res = await fetch('/api/receipts/parse', {
+          method: 'POST',
+          headers: { 'X-Apartment-User': currentProfile },
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Could not parse receipt');
+        }
+        currentReceiptReview = data;
+        renderReceiptReview();
+      } catch (err) {
+        errEl.style.display = 'block';
+        errEl.innerText = `⚠️ ${err.message}`;
+      } finally {
+        loadingEl.style.display = 'none';
+        inputEl.value = '';
+      }
+    }
+
+    async function parseReceiptTextFromModal() {
+      const rawText = (document.getElementById('receipt-text-input')?.value || '').trim();
+      const errEl = document.getElementById('receipt-error-state');
+      const loadingEl = document.getElementById('receipt-loading-state');
+      if (!rawText) {
+        if (errEl) { errEl.style.display = 'block'; errEl.innerText = '⚠️ Paste receipt lines first.'; }
+        return;
+      }
+      if (loadingEl) loadingEl.style.display = 'block';
+      if (errEl) errEl.style.display = 'none';
+      try {
+        const res = await fetch('/api/receipts/parse', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            receipt_text: rawText,
+            paid_by: document.getElementById('receipt-paid-by').value || currentProfile
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Could not parse receipt text');
+        currentReceiptReview = data;
+        renderReceiptReview();
+      } catch (err) {
+        if (errEl) { errEl.style.display = 'block'; errEl.innerText = `⚠️ ${err.message}`; }
+      } finally {
+        if (loadingEl) loadingEl.style.display = 'none';
+      }
+    }
+
+    function renderReceiptReview() {
+      if (!currentReceiptReview) return;
+      const reviewEl = document.getElementById('receipt-review-container');
+      const commitBtn = document.getElementById('btn-commit-receipt');
+      reviewEl.style.display = 'flex';
+      commitBtn.style.display = 'inline-block';
+
+      const totals = currentReceiptReview.totals || {};
+      document.getElementById('receipt-merchant-name').innerText = currentReceiptReview.merchant_name || 'Supermarket Receipt';
+      document.getElementById('receipt-total-badge').innerText = `₪${(totals.total_amount || 0).toFixed(2)}`;
+      document.getElementById('rec-sum-5050').innerText = `₪${(totals.shared_50_50_total || 0).toFixed(2)}`;
+      document.getElementById('rec-sum-mikush').innerText = `₪${(totals.mikush_100_total || 0).toFixed(2)}`;
+      document.getElementById('rec-sum-tamir').innerText = `₪${(totals.tamir_100_total || 0).toFixed(2)}`;
+      document.getElementById('receipt-net-impact-banner').innerText = totals.net_impact_label || '';
+
+      const matched = (currentReceiptReview.items || []).filter(i => i.matched_grocery_name);
+      const matchedBanner = document.getElementById('receipt-matched-groceries-banner');
+      if (matched.length > 0) {
+        matchedBanner.style.display = 'block';
+        matchedBanner.innerText = `✓ Will auto-cross off ${matched.length} active grocery item(s): ${matched.map(m => m.matched_grocery_name).join(', ')}`;
+      } else {
+        matchedBanner.style.display = 'none';
+      }
+
+      const listEl = document.getElementById('receipt-items-list');
+      listEl.innerHTML = (currentReceiptReview.items || []).map((it, idx) => {
+        const sr = it.split_rule || 'SHARED_50_50';
+        const rowCls = sr === 'MIKUSH_100' ? 'row-mikush' : (sr === 'TAMIR_100' ? 'row-tamir' : 'row-5050');
+        const pillCls = sr === 'MIKUSH_100' ? 'owner-pill-mikush' : (sr === 'TAMIR_100' ? 'owner-pill-tamir' : 'owner-pill-5050');
+        const pillTxt = sr === 'MIKUSH_100' ? '🌸 Mikush 100%' : (sr === 'TAMIR_100' ? '🌿 Tamir 100%' : '🤝 50 / 50');
+
+        const qtyBadge = `${it.quantity}${it.unit ? ' ' + it.unit : ''}`;
+        const promoBadge = it.discount_amount > 0
+          ? `<span class="receipt-badge-tag" style="background:rgba(245,158,11,0.2); color:#fde68a; display:inline-flex; align-items:center; gap:4px;"><span>🏷️</span><span class="bidi-text" dir="auto">${escapeHtml(it.discount_label || 'מבצע')}</span><bdi dir="ltr" style="font-family:var(--font-mono);">-₪${Number(it.discount_amount).toFixed(2)}</bdi></span>`
+          : '';
+        const ruleBadge = it.rule_source === 'learned'
+          ? `<span class="receipt-badge-tag" style="background:rgba(56,189,248,0.2); color:#bae6fd;">🧠 Learned Rule</span>`
+          : (it.is_deposit ? `<span class="receipt-badge-tag" style="background:rgba(148,163,184,0.2); color:#cbd5e1;">🍾 Deposit</span>` : '');
+
+        return `
+          <div class="receipt-item-row ${rowCls}">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; font-weight:700; font-size:0.86rem; color:var(--text-main);">
+                <span class="bidi-text" dir="auto">${escapeHtml(it.raw_name)}</span>
+                <bdi dir="ltr" style="font-size:0.72rem; color:var(--text-dim); font-family:var(--font-mono);">(${escapeHtml(qtyBadge)})</bdi>
+              </div>
+              <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                ${promoBadge}
+                ${ruleBadge}
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+              <bdi dir="ltr" style="font-family:var(--font-mono); font-weight:700; font-size:0.86rem;">₪${Number(it.net_price || 0).toFixed(2)}</bdi>
+              <button type="button" class="owner-pill ${pillCls}" onclick="flipReceiptItemOwner(${idx})">${pillTxt}</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function flipReceiptItemOwner(idx) {
+      if (!currentReceiptReview || !currentReceiptReview.items[idx]) return;
+      const item = currentReceiptReview.items[idx];
+      const order = ['SHARED_50_50', 'MIKUSH_100', 'TAMIR_100'];
+      const nextRule = order[(order.indexOf(item.split_rule) + 1) % order.length];
+      item.split_rule = nextRule;
+      item.user_flipped = true;
+      item.rule_source = 'learned';
+
+      // Persist rule immediately to learned_item_rules
+      try {
+        await fetch('/api/receipts/rules', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            item_name: item.normalized_name || item.raw_name,
+            split_rule: nextRule,
+            category: item.category,
+            is_produce: !!item.is_produce
+          })
+        });
+      } catch (err) {}
+
+      await recalculateReceiptReview();
+    }
+
+    async function recalculateReceiptReview() {
+      if (!currentReceiptReview) return;
+      const paidBy = document.getElementById('receipt-paid-by').value || 'Tamir';
+      currentReceiptReview.paid_by = paidBy;
+
+      try {
+        const res = await fetch('/api/receipts/recalculate', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ paid_by: paidBy, items: currentReceiptReview.items })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          currentReceiptReview.items = data.items;
+          currentReceiptReview.totals = data.totals;
+        }
+      } catch (err) {}
+      renderReceiptReview();
+    }
+
+    async function commitReviewedReceipt() {
+      if (!currentReceiptReview) return;
+      const paidBy = document.getElementById('receipt-paid-by').value || 'Tamir';
+
+      try {
+        const res = await fetch('/api/receipts/commit', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            merchant_name: currentReceiptReview.merchant_name,
+            receipt_type: currentReceiptReview.receipt_type,
+            paid_by: paidBy,
+            items: currentReceiptReview.items,
+            auto_cross_off_groceries: true,
+            save_flipped_rules: true
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to commit receipt');
+        currentReceiptReview = null;
+        closeModal('receipt-scanner-modal');
+        showToast(data.message || 'Receipt committed to ledger!');
+        await loadGroceries();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    // 5. Full Splitwise Replacement Ledger
+    async function loadLedgerSummary() {
+      try {
+        const res = await fetch('/api/ledger/summary', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        ledgerSummaryData = data;
+        renderLedgerSummary(data);
+      } catch (err) {
+        console.warn('Ledger summary notice:', err);
+      }
+    }
+
+    function renderLedgerSummary(data) {
+      const topPill = document.getElementById('shop-balance-headline');
+      const heroHeadline = document.getElementById('ledger-hero-headline');
+      const rulesCount = document.getElementById('ledger-rules-count');
+      const unsettledCount = document.getElementById('ledger-unsettled-count');
+      const historyCount = document.getElementById('settlement-history-count');
+
+      if (topPill) topPill.innerText = `⚖️ ${data.headline}`;
+      if (heroHeadline) heroHeadline.innerText = data.headline;
+      if (rulesCount) rulesCount.innerText = data.learned_rules_count || 0;
+      if (unsettledCount) unsettledCount.innerText = `${data.unsettled_count || 0} active`;
+      if (historyCount) historyCount.innerText = (data.settlement_history || []).length;
+
+      const presetsBar = document.getElementById('recurring-bill-presets-bar');
+      if (presetsBar && Array.isArray(data.recurring_bill_presets) && data.recurring_bill_presets.length) {
+        presetsBar.innerHTML = data.recurring_bill_presets.map(p => {
+          const amtTag = p.last_amount ? ` · ₪${Math.round(p.last_amount)}` : '';
+          return `<button class="staple-chip" onclick="openAddExpenseModal('${escapeHtml(p.category)}')">${p.icon || '⚡'} ${escapeHtml(p.label)}${amtTag}</button>`;
+        }).join('');
+      }
+
+      if (data.spending_breakdown) {
+        renderBreakdownDrawer(data.spending_breakdown);
+      }
+
+      const txList = document.getElementById('ledger-transactions-list');
+      if (txList) {
+        const txs = data.active_transactions || [];
+        if (txs.length === 0) {
+          txList.innerHTML = `<div style="text-align:center; padding:18px; color:var(--text-dim); font-size:0.82rem;">No unsettled expenses yet. Scan a receipt or log a bill!</div>`;
+        } else {
+          txList.innerHTML = txs.map(tx => {
+            const payerPill = tx.paid_by === 'Mikush'
+              ? `<span class="user-pill pill-mikush">🌸 Paid by Mikush</span>`
+              : `<span class="user-pill pill-tamir">🌿 Paid by Tamir</span>`;
+            return `
+              <div class="tx-card">
+                <div style="flex:1; min-width:0;">
+                  <div class="bidi-text" dir="auto" style="font-weight:700; font-size:0.88rem; color:var(--text-main);">${escapeHtml(tx.description)}</div>
+                  <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:4px;">
+                    ${payerPill}
+                    <span class="bidi-text" dir="auto" style="font-size:0.7rem; color:var(--text-dim);">${escapeHtml(tx.category)} · Tamir ₪${Number(tx.tamir_share).toFixed(2)} / Mikush ₪${Number(tx.mikush_share).toFixed(2)}</span>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                  <span style="font-family:var(--font-mono); font-weight:800; font-size:0.92rem;">₪${Number(tx.total_amount).toFixed(2)}</span>
+                  <button class="btn-log-action" onclick="deleteLedgerTx(${tx.id})" title="Delete">🗑️</button>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      const histList = document.getElementById('settlement-history-list');
+      if (histList) {
+        const settlements = data.settlement_history || [];
+        if (settlements.length === 0) {
+          histList.innerHTML = `<div style="font-size:0.78rem; color:var(--text-dim);">No past settlements archived yet.</div>`;
+        } else {
+          histList.innerHTML = settlements.map(st => `
+            <div style="background:rgba(30,41,59,0.55); border:1px solid var(--card-border); border-radius:var(--radius-sm); padding:8px 10px; font-size:0.78rem;">
+              <div style="display:flex; justify-content:space-between; font-weight:700;">
+                <span>🤝 ${escapeHtml(st.payer)} → ${escapeHtml(st.payee)}</span>
+                <span style="font-family:var(--font-mono); color:var(--emerald);">₪${Number(st.amount).toFixed(2)}</span>
+              </div>
+              <div style="color:var(--text-dim); font-size:0.7rem; margin-top:2px;">
+                ${st.is_full_settlement ? 'Full Settle-Up' : 'Partial Payment'} · ${st.archived_count} archived item(s) · ${st.settled_at ? st.settled_at.split('T')[0] : ''}
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    function renderBreakdownDrawer(bd) {
+      if (!bd) return;
+      const headlineEl = document.getElementById('breakdown-headline-pill');
+      const bodyEl = document.getElementById('ledger-breakdown-body');
+      const monthSel = document.getElementById('breakdown-month-select');
+
+      if (headlineEl) headlineEl.innerText = `₪${Number(bd.total_spend || 0).toFixed(2)} total`;
+
+      if (monthSel && Array.isArray(bd.available_months)) {
+        const currentVal = bd.month_filter || monthSel.value || 'all';
+        monthSel.innerHTML = `<option value="all">📅 All Time</option>` + bd.available_months.map(m =>
+          `<option value="${escapeHtml(m.month)}">${escapeHtml(m.label)} (₪${Number(m.total).toFixed(0)})</option>`
+        ).join('');
+        monthSel.value = Array.from(monthSel.options).some(o => o.value === currentVal) ? currentVal : 'all';
+      }
+
+      if (!bodyEl) return;
+      if (!bd.total_spend || bd.total_spend <= 0) {
+        bodyEl.innerHTML = `<div style="font-size:0.8rem; color:var(--text-dim); padding:6px 0;">No spending logged in this period yet.</div>`;
+        return;
+      }
+
+      const colorMap = {
+        shared_groceries: '#6366f1',
+        produce_mikush_100: '#ec4899',
+        apartment_bills: '#f59e0b',
+        date_nights_takeout: '#10b981',
+        other: '#94a3b8'
+      };
+      const visibleCats = (bd.categories || []).filter(c => c.key !== 'other' || c.amount > 0);
+      const barsHtml = visibleCats.map(cat => {
+        const barColor = colorMap[cat.key] || '#38bdf8';
+        return `
+          <div class="breakdown-bar-row">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px; font-size:0.8rem;">
+              <div>
+                <span style="font-weight:700; color:var(--text-main);">${escapeHtml(cat.label)}</span>
+                <span style="font-size:0.7rem; color:var(--text-dim);"> · ${escapeHtml(cat.subtitle)}</span>
+              </div>
+              <span style="font-family:var(--font-mono); font-weight:800; color:var(--text-main); white-space:nowrap;">
+                ₪${Number(cat.amount).toFixed(2)} <span style="color:var(--text-dim); font-weight:600;">(${cat.pct}%)</span>
+              </span>
+            </div>
+            <div class="breakdown-bar-track">
+              <div class="breakdown-bar-fill" style="width:${Math.min(100, Math.max(0, cat.pct))}%; background:${barColor};"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      bodyEl.innerHTML = `
+        <div class="breakdown-summary-grid">
+          <div class="breakdown-stat-card">
+            <div style="font-size:0.68rem; color:var(--text-dim); font-weight:700;">Total Spend (${bd.transaction_count || 0})</div>
+            <div style="font-family:var(--font-mono); font-weight:800; font-size:0.95rem; color:var(--text-main);">₪${Number(bd.total_spend || 0).toFixed(2)}</div>
+          </div>
+          <div class="breakdown-stat-card">
+            <div style="font-size:0.68rem; color:var(--text-dim); font-weight:700;">🌿 Tamir Share</div>
+            <div style="font-family:var(--font-mono); font-weight:800; font-size:0.95rem; color:#a7f3d0;">₪${Number(bd.tamir_share_total || 0).toFixed(2)}</div>
+          </div>
+          <div class="breakdown-stat-card">
+            <div style="font-size:0.68rem; color:var(--text-dim); font-weight:700;">🌸 Mikush Share</div>
+            <div style="font-family:var(--font-mono); font-weight:800; font-size:0.95rem; color:#fbcfe8;">₪${Number(bd.mikush_share_total || 0).toFixed(2)}</div>
+          </div>
+        </div>
+        ${barsHtml}
+      `;
+    }
+
+    async function loadLedgerBreakdown() {
+      const month = document.getElementById('breakdown-month-select')?.value || 'all';
+      try {
+        const res = await fetch(`/api/ledger/breakdown?month=${encodeURIComponent(month)}`, { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        renderBreakdownDrawer(data);
+      } catch (err) {}
+    }
+
+    async function exportLedgerCsv() {
+      const month = document.getElementById('breakdown-month-select')?.value || 'all';
+      const url = `/api/ledger/export.csv?month=${encodeURIComponent(month)}`;
+      try {
+        const res = await fetch(url, { headers: { 'X-Apartment-User': currentProfile } });
+        if (!res.ok) throw new Error('CSV export failed');
+        const blob = await res.blob();
+        const dlUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = dlUrl;
+        a.download = `apartment_ledger_${month === 'all' ? 'all' : month}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(dlUrl), 1000);
+        showToast('Exported Ledger CSV');
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function openAddExpenseModal(presetCategory = 'Rent') {
+      const preset = (ledgerSummaryData?.recurring_bill_presets || []).find(p => p.category === presetCategory);
+      document.getElementById('tx-input-desc').value = preset ? preset.label : (presetCategory && presetCategory !== 'Other' ? `${presetCategory}` : '');
+      document.getElementById('tx-input-amount').value = (preset && preset.last_amount) ? preset.last_amount : '';
+      document.getElementById('tx-input-category').value = presetCategory || 'Other';
+      document.getElementById('tx-input-paid-by').value = currentProfile;
+      document.getElementById('tx-input-split').value = presetCategory === 'Produce' ? 'MIKUSH_100' : 'SHARED_50_50';
+      openModal('ledger-expense-modal');
+    }
+
+    async function submitLedgerExpense() {
+      const desc = document.getElementById('tx-input-desc').value.trim();
+      const amount = parseFloat(document.getElementById('tx-input-amount').value);
+      const category = document.getElementById('tx-input-category').value;
+      const paidBy = document.getElementById('tx-input-paid-by').value;
+      const splitRule = document.getElementById('tx-input-split').value;
+
+      if (!desc || !amount || amount <= 0) {
+        alert('Please enter a description and positive amount.');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/ledger/transactions', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            description: desc,
+            category: category,
+            paid_by: paidBy,
+            total_amount: amount,
+            split_rule: splitRule,
+            source_type: ['Rent', 'Arnona', 'Electricity', 'Water', 'Internet', 'Gas / Vaad Bayit'].includes(category) ? 'recurring_bill' : 'manual'
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to log expense');
+        closeModal('ledger-expense-modal');
+        showToast(`Logged ₪${amount.toFixed(2)} for ${desc}`);
+        if (data.summary) renderLedgerSummary({ ...(ledgerSummaryData || {}), ...data.summary });
+        loadLedgerSummary();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function deleteLedgerTx(txId) {
+      if (!confirm('Delete this unsettled expense?')) return;
+      try {
+        const res = await fetch(`/api/ledger/transactions/${txId}`, { method: 'DELETE', headers: getAuthHeaders() });
+        if (res.ok) {
+          showToast('Deleted expense');
+          loadLedgerSummary();
+        }
+      } catch (err) {}
+    }
+
+    function openSettleUpModal() {
+      if (!ledgerSummaryData || Math.abs(ledgerSummaryData.net_balance) < 0.01) {
+        showToast('All Settled Up already! ✨');
+        return;
+      }
+      document.getElementById('settle-up-summary-box').innerText = ledgerSummaryData.headline;
+      document.getElementById('settle-input-amount').value = ledgerSummaryData.abs_balance.toFixed(2);
+      document.getElementById('settle-input-note').value = '';
+      openModal('settle-up-modal');
+    }
+
+    async function submitSettleUp() {
+      const amtVal = parseFloat(document.getElementById('settle-input-amount').value);
+      const note = document.getElementById('settle-input-note').value.trim();
+
+      try {
+        const res = await fetch('/api/ledger/settle', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ amount: isNaN(amtVal) ? null : amtVal, note: note || null })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to settle up');
+        closeModal('settle-up-modal');
+        showToast(data.message || 'Settled up!');
+        triggerSparkleBurst(window.innerWidth / 2, 100, currentProfile === 'Mikush');
+        loadLedgerSummary();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function openInitialBalanceModal() {
+      openModal('initial-balance-modal');
+    }
+
+    async function submitInitialBalance() {
+      const ahead = document.getElementById('init-bal-ahead').value;
+      const amt = parseFloat(document.getElementById('init-bal-amount').value);
+      const note = document.getElementById('init-bal-note').value.trim();
+      if (isNaN(amt) || amt < 0) {
+        alert('Enter a valid amount >= 0.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/ledger/initial-balance', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ ahead_user: ahead, amount: amt, note: note || 'Starting balance' })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to set starting balance');
+        closeModal('initial-balance-modal');
+        showToast(data.message);
+        loadLedgerSummary();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function openSplitwiseImportModal() {
+      openModal('splitwise-import-modal');
+    }
+
+    async function submitSplitwiseImport() {
+      const fileInput = document.getElementById('splitwise-csv-file');
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) {
+        alert('Please choose a Splitwise .csv file first.');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const res = await fetch('/api/ledger/import-splitwise', {
+          method: 'POST',
+          headers: { 'X-Apartment-User': currentProfile },
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'CSV import failed');
+        closeModal('splitwise-import-modal');
+        fileInput.value = '';
+        showToast(data.message || 'Imported Splitwise CSV!');
+        loadLedgerSummary();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    async function openLearnedRulesModal() {
+      try {
+        const res = await fetch('/api/receipts/rules', { headers: getAuthHeaders() });
+        const data = await res.json();
+        const rules = data.rules || [];
+        const listEl = document.getElementById('learned-rules-list');
+        if (rules.length === 0) {
+          listEl.innerHTML = `<div style="font-size:0.8rem; color:var(--text-dim);">No learned rules saved yet. Flip an item on any scanned receipt to create one!</div>`;
+        } else {
+          listEl.innerHTML = rules.map(r => `
+            <div class="tx-card" style="padding:8px 10px;">
+              <div>
+                <div style="font-weight:700; font-size:0.84rem;">${escapeHtml(r.display_name)}</div>
+                <div style="font-size:0.7rem; color:var(--text-dim);">${escapeHtml(r.split_rule)}</div>
+              </div>
+              <button class="btn-log-action" onclick="deleteLearnedRule(${r.id})">🗑️</button>
+            </div>
+          `).join('');
+        }
+        openModal('learned-rules-modal');
+      } catch (err) {}
+    }
+
+    async function deleteLearnedRule(ruleId) {
+      await fetch(`/api/receipts/rules/${ruleId}`, { method: 'DELETE', headers: getAuthHeaders() });
+      openLearnedRulesModal();
+      loadLedgerSummary();
+    }
+
     // ---------- INITIALIZATION ----------
     document.addEventListener('DOMContentLoaded', () => {
       // 1. Initialize user switcher DOM state without notification
       switchActiveUser(currentProfile, false);
+      updateSoloShopperBtnUI();
+      const langBtn = document.getElementById('btn-voice-lang');
+      if (langBtn) langBtn.innerText = `🌐 ${brainDumpLang}`;
 
-      // 2. Determine initial tab based on path (/groceries, /meals, /maintenance, /dates, /shop, /tasks) or query param
+      // 2. Determine initial tab based on path (/groceries, /meals, /maintenance, /dates, /shop, /tasks, /ledger, /expenses) or query param
       let path = window.location.pathname.replace(/^\//, '').toLowerCase();
       if (path === 'tasks') path = 'maintenance';
-      if (path === 'shop') path = 'groceries';
+      if (path === 'shop' || path === 'ledger' || path === 'expenses') path = 'groceries';
       const validTabs = ['plants', 'groceries', 'meals', 'maintenance', 'dates'];
       let initialTab = 'plants';
 
@@ -6664,7 +8353,11 @@
         }
       }
 
+      const rawPath = window.location.pathname.replace(/^\//, '').toLowerCase();
       switchTab(initialTab);
+      if (rawPath === 'ledger' || rawPath === 'expenses') {
+        switchGroceriesSubview('ledger');
+      }
 
       // 3. Load Shared Fridge Magnet / Status Note
       loadFridgeNote();

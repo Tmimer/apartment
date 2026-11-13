@@ -1,33 +1,50 @@
-from database import engine
+from database import engine, Base
 from sqlalchemy import text
 
+
+def _ensure_column(conn, table_name: str, col_name: str, sqlite_def: str, pg_def: str):
+    """Idempotently adds a column to an existing table across SQLite and PostgreSQL."""
+    if engine.dialect.name == "sqlite":
+        cols = conn.execute(text(f"PRAGMA table_info({table_name});")).fetchall()
+        col_names = [c[1] for c in cols]
+        if col_names and col_name not in col_names:
+            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {sqlite_def};"))
+            print(f"[+] Added column {table_name}.{col_name} (SQLite)")
+    else:
+        conn.execute(text(
+            f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col_name} {pg_def};"
+        ))
+
+
 def auto_migrate_schema():
-    """Ensures newly added columns exist in both PostgreSQL (Supabase) and SQLite."""
+    """Ensures all tables & newly added columns exist in both PostgreSQL (Supabase) and SQLite."""
+    try:
+        # Ensure all registered SQLAlchemy models/tables exist (safe no-op for existing tables)
+        import models  # noqa: F401
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"[!] auto_migrate_schema create_all note: {e}")
+
     try:
         with engine.begin() as conn:
-            if engine.dialect.name == "sqlite":
-                # 1. meal_plans.is_double_batch
-                cols = conn.execute(text("PRAGMA table_info(meal_plans);")).fetchall()
-                col_names = [c[1] for c in cols]
-                if "is_double_batch" not in col_names:
-                    conn.execute(text("ALTER TABLE meal_plans ADD COLUMN is_double_batch BOOLEAN DEFAULT 0;"))
-                    print("[+] Added column meal_plans.is_double_batch (SQLite)")
+            # 1. Existing upgrades
+            _ensure_column(conn, "meal_plans", "is_double_batch", "BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE")
+            _ensure_column(conn, "watering_logs", "watered_by", "VARCHAR(50) DEFAULT 'Tamir'", "VARCHAR(50) DEFAULT 'Tamir'")
 
-                # 2. watering_logs.watered_by
-                wcols = conn.execute(text("PRAGMA table_info(watering_logs);")).fetchall()
-                wcol_names = [c[1] for c in wcols]
-                if "watered_by" not in wcol_names:
-                    conn.execute(text("ALTER TABLE watering_logs ADD COLUMN watered_by VARCHAR(50) DEFAULT 'Tamir';"))
-                    print("[+] Added column watering_logs.watered_by (SQLite)")
-            else:
-                # PostgreSQL (Supabase)
+            # 2. Zero-Entry Suite upgrades on existing grocery tables
+            _ensure_column(conn, "grocery_items", "for_member", "VARCHAR(50) DEFAULT NULL", "VARCHAR(50) DEFAULT NULL")
+            _ensure_column(conn, "grocery_items", "default_split", "VARCHAR(30) DEFAULT 'SHARED_50_50'", "VARCHAR(30) DEFAULT 'SHARED_50_50'")
+            _ensure_column(conn, "grocery_items", "typical_depletion_days", "INTEGER DEFAULT NULL", "INTEGER DEFAULT NULL")
+            _ensure_column(conn, "grocery_staples", "avg_interval_days", "FLOAT DEFAULT NULL", "DOUBLE PRECISION DEFAULT NULL")
+
+            # Update Olive Oil staple to Spices/Oils aisle if still under Pantry/Dry
+            try:
                 conn.execute(text(
-                    "ALTER TABLE meal_plans ADD COLUMN IF NOT EXISTS is_double_batch BOOLEAN DEFAULT FALSE;"
+                    "UPDATE grocery_staples SET category = 'Spices/Oils' "
+                    "WHERE LOWER(name) = 'olive oil' AND category = 'Pantry/Dry';"
                 ))
-                conn.execute(text(
-                    "ALTER TABLE watering_logs ADD COLUMN IF NOT EXISTS watered_by VARCHAR(50) DEFAULT 'Tamir';"
-                ))
-                print("[+] Verified schema columns in PostgreSQL")
+            except Exception:
+                pass
 
             # Clean up uncompleted maintenance task attributions if any exist
             try:
@@ -36,6 +53,39 @@ def auto_migrate_schema():
                 pass
     except Exception as e:
         print(f"[!] auto_migrate_schema warning: {e}")
+
+    # Backfill grocery_purchase_history from existing checked items if history table is empty
+    try:
+        from database import SessionLocal
+        from models.groceries import GroceryItem, GroceryPurchaseHistory
+        db = SessionLocal()
+        try:
+            if db.query(GroceryPurchaseHistory).count() == 0:
+                checked_items = (
+                    db.query(GroceryItem)
+                    .filter(GroceryItem.is_checked == True, GroceryItem.checked_at != None)
+                    .all()
+                )
+                for it in checked_items:
+                    norm = (it.name or "").strip().lower()
+                    if norm:
+                        db.add(GroceryPurchaseHistory(
+                            item_name=it.name.strip(),
+                            normalized_name=norm,
+                            category=it.category or "Pantry/Dry",
+                            amount=it.amount,
+                            unit=it.unit,
+                            source="grocery_check",
+                            purchased_by=it.added_by or "Tamir",
+                            purchased_at=it.checked_at
+                        ))
+                if checked_items:
+                    db.commit()
+                    print(f"[+] Backfilled {len(checked_items)} purchase history records for Depletion Radar")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[!] auto_migrate_schema purchase history backfill note: {e}")
 
     # Startup repair check for corrupted watering logs (self-comparison / near-zero elapsed time)
     try:

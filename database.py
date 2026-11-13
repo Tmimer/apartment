@@ -5,6 +5,35 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
+def _load_env_file():
+    """Loads .env from project root via python-dotenv with a safe fallback parser."""
+    env_path = os.path.join(BASE_DIR, ".env")
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(env_path, override=False)
+        return
+    except Exception:
+        pass
+
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for raw_line in f:
+                    line = raw_line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, val = line.split("=", 1)
+                    key = key.strip()
+                    val = val.strip().strip('"').strip("'")
+                    if key and key not in os.environ:
+                        os.environ[key] = val
+        except Exception as e:
+            print(f"[!] Warning reading .env fallback: {e}")
+
+
+_load_env_file()
+
 db_connection_error = None
 
 
@@ -17,7 +46,12 @@ def get_configured_engine(raw_url: Optional[str] = None):
         elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
             url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
         try:
-            connect_args = {"connect_timeout": 10} if "postgresql" in url else {}
+            if "postgresql" in url:
+                connect_args = {"connect_timeout": 10}
+            elif url.startswith("sqlite"):
+                connect_args = {"check_same_thread": False}
+            else:
+                connect_args = {}
             eng = create_engine(url, pool_pre_ping=True, connect_args=connect_args)
             return eng
         except Exception as e:

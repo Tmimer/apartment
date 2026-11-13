@@ -10,6 +10,12 @@ from database import get_db
 from models.meals import Meal, MealIngredient, MealPlan, FridgeItem
 from models.groceries import GroceryItem, GROCERY_CATEGORIES
 from security import require_auth_api, get_active_profile
+from services.gemini_service import (
+    _canonical_alias_groups,
+    classify_grocery_metadata,
+    infer_grocery_category,
+    normalize_item_key,
+)
 
 meals_router = APIRouter(prefix="/meals", tags=["meals"])
 
@@ -43,6 +49,12 @@ class MealPlanUpdatePayload(BaseModel):
 class FridgeItemCreatePayload(BaseModel):
     name: str = Field(..., min_length=1)
     portions_note: Optional[str] = None
+
+
+class MealPushToCartPayload(BaseModel):
+    ingredient_ids: Optional[List[int]] = None
+    excluded_ingredient_ids: Optional[List[int]] = None
+    multiplier: float = Field(1.0, gt=0, le=10)
 
 
 # ===================== STARTER RECIPES SEEDER =====================
@@ -375,13 +387,16 @@ def export_week_ingredients_to_groceries(request: Request, db: Session = Depends
             item_amount = (float(ing.amount) * multiplier) if ing.amount is not None else None
 
             key = (norm_name, norm_unit)
+            meta = classify_grocery_metadata(raw_name, explicit_category=ing.category)
 
             if key not in aggregated:
                 aggregated[key] = {
-                    "name": raw_name.capitalize(),
+                    "name": raw_name if any("\u0590" <= ch <= "\u05ff" for ch in raw_name) else raw_name.capitalize(),
                     "amount": item_amount,
                     "unit": raw_unit if raw_unit else None,
-                    "category": ing.category or "Produce"
+                    "category": meta["category"],
+                    "default_split": meta["default_split"],
+                    "typical_depletion_days": meta["typical_depletion_days"],
                 }
             else:
                 # Sum amounts where unit matches
@@ -432,6 +447,8 @@ def export_week_ingredients_to_groceries(request: Request, db: Session = Depends
                 amount=item_data["amount"],
                 unit=item_data["unit"],
                 category=item_data["category"],
+                default_split=item_data.get("default_split") or "SHARED_50_50",
+                typical_depletion_days=item_data.get("typical_depletion_days"),
                 is_checked=False,
                 added_by=active_user,
                 created_at=now,
@@ -449,6 +466,203 @@ def export_week_ingredients_to_groceries(request: Request, db: Session = Depends
         "new_items_count": added_count,
         "updated_items_count": updated_count,
         "aggregated_items": list(aggregated.values())
+    }
+
+
+# ===================== 1-CLICK MEAL-TO-CART =====================
+@meals_router.get("/api/meals/{meal_id}/cart-preview", dependencies=[Depends(require_auth_api)])
+def preview_meal_to_cart(meal_id: int, db: Session = Depends(get_db)):
+    """Returns a meal's ingredients annotated with Supermarket Walking-Order aisle and active cart status."""
+    meal = db.query(Meal).filter(Meal.id == meal_id).first()
+    if not meal:
+        raise HTTPException(status_code=404, detail="Meal not found")
+
+    active_groceries = db.query(GroceryItem).filter(GroceryItem.is_checked == False).all()
+    active_names = set()
+    for g in active_groceries:
+        if g.name:
+            active_names.add(normalize_item_key(g.name))
+            active_names.update(_canonical_alias_groups(g.name))
+
+    ingredients_preview = []
+    for ing in meal.ingredients:
+        norm = normalize_item_key(ing.ingredient_name)
+        meta = classify_grocery_metadata(ing.ingredient_name, explicit_category=ing.category)
+        aisle = meta["category"]
+        already_on_list = norm in active_names or any(
+            norm and g_name and (norm in g_name or g_name in norm)
+            for g_name in active_names
+        )
+        ingredients_preview.append({
+            "id": ing.id,
+            "ingredient_name": ing.ingredient_name,
+            "amount": ing.amount,
+            "unit": ing.unit,
+            "category": aisle,
+            "default_split": meta["default_split"],
+            "typical_depletion_days": meta["typical_depletion_days"],
+            "already_on_grocery_list": already_on_list,
+        })
+
+    return {
+        "meal": {
+            "id": meal.id,
+            "title": meal.title,
+            "prep_time_min": meal.prep_time_min,
+            "notes": meal.notes,
+        },
+        "ingredients": ingredients_preview,
+    }
+
+
+@meals_router.post("/api/meals/{meal_id}/push-to-cart", dependencies=[Depends(require_auth_api)])
+def push_meal_ingredients_to_cart(
+    meal_id: int,
+    payload: MealPushToCartPayload,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    1-Click Meal-to-Cart: pushes only missing ingredients (after user unchecks what they already
+    have in the kitchen) straight into the aisle-sorted Grocery List.
+    """
+    meal = db.query(Meal).filter(Meal.id == meal_id).first()
+    if not meal:
+        raise HTTPException(status_code=404, detail="Meal not found")
+
+    active_user = get_active_profile(request)
+    now = datetime.datetime.utcnow()
+
+    excluded_set = set(payload.excluded_ingredient_ids or [])
+    included_set = set(payload.ingredient_ids) if payload.ingredient_ids is not None else None
+
+    selected_ingredients = []
+    for ing in meal.ingredients:
+        if ing.id in excluded_set:
+            continue
+        if included_set is not None and ing.id not in included_set:
+            continue
+        selected_ingredients.append(ing)
+
+    if not selected_ingredients:
+        return {
+            "status": "ok",
+            "meal_title": meal.title,
+            "pushed_count": 0,
+            "added_count": 0,
+            "updated_count": 0,
+            "message": "No missing ingredients selected to add.",
+            "items": [],
+        }
+
+    added_count = 0
+    updated_count = 0
+    pushed_items = []
+
+    for ing in selected_ingredients:
+        raw_name = (ing.ingredient_name or "").strip()
+        if not raw_name:
+            continue
+        norm_name = raw_name.lower()
+        raw_unit = (ing.unit or "").strip()
+        norm_unit = raw_unit.lower()
+        meta = classify_grocery_metadata(raw_name, explicit_category=ing.category)
+        aisle_category = meta["category"]
+        resolved_split = meta["default_split"]
+        resolved_days = meta["typical_depletion_days"]
+        scaled_amount = round(float(ing.amount) * payload.multiplier, 2) if ing.amount is not None else None
+
+        existing_unchecked = (
+            db.query(GroceryItem)
+            .filter(func.lower(GroceryItem.name) == norm_name, GroceryItem.is_checked == False)
+            .all()
+        )
+        matched = next(
+            (ex for ex in existing_unchecked if (ex.unit or "").strip().lower() == norm_unit),
+            None,
+        )
+
+        if matched:
+            if scaled_amount is not None:
+                matched.amount = round((matched.amount or 0.0) + scaled_amount, 2)
+            matched.category = aisle_category
+            matched.default_split = resolved_split
+            matched.typical_depletion_days = resolved_days
+            matched.updated_at = now
+            matched.added_by = active_user
+            updated_count += 1
+            pushed_items.append({
+                "id": matched.id,
+                "name": matched.name,
+                "amount": matched.amount,
+                "unit": matched.unit,
+                "category": matched.category,
+                "default_split": matched.default_split,
+                "typical_depletion_days": matched.typical_depletion_days,
+            })
+        else:
+            existing_checked = (
+                db.query(GroceryItem)
+                .filter(func.lower(GroceryItem.name) == norm_name, GroceryItem.is_checked == True)
+                .first()
+            )
+            if existing_checked:
+                existing_checked.is_checked = False
+                existing_checked.checked_at = None
+                existing_checked.amount = scaled_amount
+                existing_checked.unit = raw_unit if raw_unit else None
+                existing_checked.category = aisle_category
+                existing_checked.default_split = resolved_split
+                existing_checked.typical_depletion_days = resolved_days
+                existing_checked.added_by = active_user
+                existing_checked.updated_at = now
+                db.flush()
+                added_count += 1
+                pushed_items.append({
+                    "id": existing_checked.id,
+                    "name": existing_checked.name,
+                    "amount": existing_checked.amount,
+                    "unit": existing_checked.unit,
+                    "category": existing_checked.category,
+                    "default_split": existing_checked.default_split,
+                    "typical_depletion_days": existing_checked.typical_depletion_days,
+                })
+            else:
+                new_item = GroceryItem(
+                    name=raw_name,
+                    amount=scaled_amount,
+                    unit=raw_unit if raw_unit else None,
+                    category=aisle_category,
+                    default_split=resolved_split,
+                    typical_depletion_days=resolved_days,
+                    is_checked=False,
+                    added_by=active_user,
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(new_item)
+                db.flush()
+                added_count += 1
+                pushed_items.append({
+                    "id": new_item.id,
+                    "name": new_item.name,
+                    "amount": new_item.amount,
+                    "unit": new_item.unit,
+                    "category": new_item.category,
+                    "default_split": new_item.default_split,
+                    "typical_depletion_days": new_item.typical_depletion_days,
+                })
+
+    db.commit()
+
+    return {
+        "status": "ok",
+        "meal_title": meal.title,
+        "pushed_count": len(pushed_items),
+        "added_count": added_count,
+        "updated_count": updated_count,
+        "message": f"Pushed {len(pushed_items)} ingredient(s) from '{meal.title}' to Grocery List!",
+        "items": pushed_items,
     }
 
 
