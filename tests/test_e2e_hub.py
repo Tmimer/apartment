@@ -116,6 +116,7 @@ def test_e2e_shared_apartment_hub_desktop_and_mobile(live_hub_server, viewport_n
     console_errors = []
     page_errors = []
     server_500s = []
+    allow_expected_503 = [False]
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -130,13 +131,17 @@ def test_e2e_shared_apartment_hub_desktop_and_mobile(live_hub_server, viewport_n
         page.on(
             "console",
             lambda msg: console_errors.append(msg.text)
-            if msg.type == "error" and "status of 4" not in msg.text
+            if msg.type == "error"
+            and "status of 4" not in msg.text
+            and not (allow_expected_503[0] and "status of 503" in msg.text)
             else None,
         )
         page.on("pageerror", lambda exc: page_errors.append(str(exc)))
         page.on(
             "response",
-            lambda res: server_500s.append(f"{res.status} {res.url}") if res.status >= 500 else None,
+            lambda res: server_500s.append(f"{res.status} {res.url}")
+            if res.status >= 500 and not (allow_expected_503[0] and res.status == 503 and "/api/brain-dump" in res.url)
+            else None,
         )
 
         # 1. Authenticate via login endpoint & load hub
@@ -231,7 +236,96 @@ def test_e2e_shared_apartment_hub_desktop_and_mobile(live_hub_server, viewport_n
         _assert_no_horizontal_overflow(page, f"{viewport_name}-groceries")
         _save_screenshot(page, f"{viewport_name}_groceries.png")
 
-        # 4. Brain Dump Local Fallback ("milk, eggs, and 85 for groceries")
+        # 4. Brain Dump HTML cleanup + Voice error visibility + MediaRecorder mock + Local Fallback
+        expect(page.locator("#brain-dump-input")).to_have_class(re.compile(r"search-input"))
+        expect(page.locator("#brain-dump-input")).to_have_class(re.compile(r"bidi-text"))
+
+        # Verify getUserMedia errors surface visibly in #brain-dump-result-banner instead of failing silently
+        page.evaluate("""() => {
+            if (!navigator.mediaDevices) {
+                Object.defineProperty(navigator, 'mediaDevices', { value: {}, configurable: true });
+            }
+            navigator.mediaDevices._origGetUserMedia = navigator.mediaDevices.getUserMedia;
+            navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('Denied', 'NotAllowedError'));
+        }""")
+        page.locator("#btn-brain-dump-mic").click()
+        expect(page.locator("#brain-dump-result-banner")).to_be_visible()
+        expect(page.locator("#brain-dump-result-banner")).to_contain_text("Microphone permission denied")
+
+        # Verify MediaRecorder 2-tap recording -> audio upload fills #brain-dump-input with returned transcript
+        page.evaluate("""() => {
+            window._origMediaRecorder = window.MediaRecorder;
+            navigator.mediaDevices.getUserMedia = () => Promise.resolve({
+                getTracks: () => [{ stop: () => {} }]
+            });
+            class FakeMediaRecorder {
+                constructor(stream, opts) {
+                    this.state = 'inactive';
+                    this.mimeType = (opts && opts.mimeType) || 'audio/webm';
+                    this.ondataavailable = null;
+                    this.onstop = null;
+                    this.onerror = null;
+                }
+                start() { this.state = 'recording'; }
+                stop() {
+                    this.state = 'inactive';
+                    if (this.ondataavailable) {
+                        this.ondataavailable({ data: new Blob(['fake-audio'], { type: 'audio/webm' }) });
+                    }
+                    if (this.onstop) this.onstop();
+                }
+            }
+            FakeMediaRecorder.isTypeSupported = (m) => m.startsWith('audio/webm');
+            window.MediaRecorder = FakeMediaRecorder;
+        }""")
+        def _mock_audio_brain_dump(route):
+            if route.request.method == "POST":
+                route.fulfill(
+                    status=200,
+                    content_type="application/json; charset=utf-8",
+                    body='{"status":"ok","parser_mode":"gemini","transcript":"קניתי חלב ונגמר אבוקדו","checked_off":[],"added_items":[],"logged_expenses":[],"summary_message":"Voice parsed"}'.encode("utf-8"),
+                )
+            else:
+                route.continue_()
+        context.route("**/api/brain-dump", _mock_audio_brain_dump)
+        page.locator("#btn-brain-dump-mic").click()
+        expect(page.locator("#btn-brain-dump-mic")).to_have_class(re.compile(r"recording"))
+        page.locator("#btn-brain-dump-mic").click()
+        expect(page.locator("#brain-dump-input")).to_have_value("קניתי חלב ונגמר אבוקדו")
+        context.unroute("**/api/brain-dump", _mock_audio_brain_dump)
+
+        # Verify GEMINI_API_KEY_MISSING on real server triggers Web Speech fallback and rec.onerror surfaces visibly
+        allow_expected_503[0] = True
+        page.evaluate("""() => {
+            window._origSpeechRecognition = window.SpeechRecognition;
+            window._origWebkitSpeechRecognition = window.webkitSpeechRecognition;
+            class FakeSpeechRecognition {
+                start() {
+                    setTimeout(() => {
+                        if (this.onerror) this.onerror({ error: 'service-not-allowed' });
+                    }, 30);
+                }
+                stop() {}
+            }
+            window.SpeechRecognition = FakeSpeechRecognition;
+            window.webkitSpeechRecognition = FakeSpeechRecognition;
+        }""")
+        page.locator("#btn-brain-dump-mic").click()
+        expect(page.locator("#btn-brain-dump-mic")).to_have_class(re.compile(r"recording"))
+        page.locator("#btn-brain-dump-mic").click()
+        expect(page.locator("#brain-dump-result-banner")).to_contain_text("Speech recognition service blocked")
+        allow_expected_503[0] = False
+
+        page.evaluate("""() => {
+            if (window._origMediaRecorder) window.MediaRecorder = window._origMediaRecorder;
+            if (navigator.mediaDevices._origGetUserMedia) {
+                navigator.mediaDevices.getUserMedia = navigator.mediaDevices._origGetUserMedia;
+            }
+            window.SpeechRecognition = window._origSpeechRecognition;
+            window.webkitSpeechRecognition = window._origWebkitSpeechRecognition;
+            brainDumpPreferSpeechFallback = false;
+        }""")
+
         page.locator("#brain-dump-input").fill("milk, eggs, and 85 for groceries")
         page.locator("#btn-brain-dump-submit").click()
         expect(page.locator("#brain-dump-result-banner")).to_be_visible()

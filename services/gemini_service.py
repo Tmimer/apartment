@@ -81,6 +81,7 @@ class BrainDumpExpenseSchema(BaseModel):
 
 
 class BrainDumpResponseSchema(BaseModel):
+    transcript: Optional[str] = None
     items_to_add: List[BrainDumpItemToAddSchema] = Field(default_factory=list)
     items_to_check_off: List[BrainDumpItemToCheckSchema] = Field(default_factory=list)
     expenses_to_log: List[BrainDumpExpenseSchema] = Field(default_factory=list)
@@ -657,6 +658,47 @@ def calculate_receipt_totals(items: List[dict], paid_by: str = "Tamir") -> dict:
     }
 
 
+_MIME_EXTENSION_MAP = {
+    ".webm": "audio/webm",
+    ".opus": "audio/ogg",
+    ".ogg": "audio/ogg",
+    ".mp4": "audio/mp4",
+    ".m4a": "audio/mp4",
+    ".wav": "audio/wav",
+    ".mp3": "audio/mpeg",
+    ".aac": "audio/aac",
+    ".flac": "audio/flac",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+}
+
+_MIME_ALIASES = {
+    "audio/x-wav": "audio/wav",
+    "audio/wave": "audio/wav",
+    "audio/x-pn-wav": "audio/wav",
+    "audio/x-m4a": "audio/mp4",
+    "audio/m4a": "audio/mp4",
+    "audio/x-ogg": "audio/ogg",
+    "audio/mp3": "audio/mpeg",
+    "image/jpg": "image/jpeg",
+}
+
+
+def normalize_media_mime(mime_type: Optional[str], filename: Optional[str] = None) -> str:
+    """Strips codec parameters (e.g. audio/webm;codecs=opus -> audio/webm) and canonicalizes audio/image MIMEs."""
+    base = (mime_type or "").split(";")[0].strip().lower()
+    if base in _MIME_ALIASES:
+        base = _MIME_ALIASES[base]
+    if (not base or base == "application/octet-stream") and filename:
+        ext = os.path.splitext(filename.strip().lower())[1]
+        base = _MIME_EXTENSION_MAP.get(ext, "")
+    return base
+
+
 def _get_gemini_client():
     """Lazily initializes the official google-genai client so missing keys never crash boot."""
     api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
@@ -1110,6 +1152,7 @@ def parse_brain_dump_locally(
         summary_parts.append(f"Logged {len(expenses_to_log)} expense(s)")
 
     return {
+        "transcript": text_input.strip() if text_input else None,
         "items_to_add": items_to_add,
         "items_to_check_off": items_to_check_off,
         "expenses_to_log": expenses_to_log,
@@ -1124,36 +1167,60 @@ def parse_brain_dump_with_gemini(
     mime_type: Optional[str],
     active_profile: str,
     active_grocery_items: List[dict],
+    audio_bytes: Optional[bytes] = None,
+    audio_mime_type: Optional[str] = None,
 ) -> dict:
-    """Parses messy text, voice transcripts, or handwritten shopping list photos into multi-intent actions."""
+    """Parses text, handwritten list photos, or voice audio (Hebrew/English/mixed) into multi-intent actions."""
     client = _get_gemini_client()
     from google.genai import types
+
+    img_mime = normalize_media_mime(mime_type) if mime_type else ""
+    if image_bytes and not audio_bytes and img_mime.startswith("audio/"):
+        audio_bytes = image_bytes
+        audio_mime_type = img_mime
+        image_bytes = None
+        img_mime = ""
+    aud_mime = normalize_media_mime(audio_mime_type) if audio_mime_type else ""
 
     active_list_hint = json.dumps(
         [{"id": g["id"], "name": g["name"], "category": g["category"]} for g in active_grocery_items],
         ensure_ascii=False
     )
 
+    if audio_bytes and image_bytes:
+        media_hint = "(See attached voice audio recording and image; also check text if provided)"
+    elif audio_bytes:
+        media_hint = "(See attached voice audio recording — listen and transcribe spoken Hebrew, English, or mixed Hebrew/English)"
+    elif image_bytes:
+        media_hint = "(See attached handwritten list image)"
+    else:
+        media_hint = "(None)"
+
     prompt = f"""
 You are the AI assistant for Tamir & Mikush's Shared Apartment Hub.
 Active user speaking/typing: {active_profile}.
 Active unchecked grocery list: {active_list_hint}
 
-Analyze the user's messy text / voice transcript / handwritten shopping list photo and extract all simultaneous intents into JSON:
-1. `items_to_add`: Items we are out of or need to buy (e.g. "we're out of trash bags and garlic" -> add Trash Bags [Household], Garlic [Produce]).
+Analyze the user's input (spoken voice recording, typed text, or handwritten shopping list photo) and extract a transcript + all simultaneous intents into JSON:
+0. `transcript`:
+   - If spoken audio is attached, transcribe what the speaker said verbatim (automatically handling Hebrew, English, or mixed Hebrew/English code-switching cleanly without needing a language setting).
+   - If typed text or an image is provided without audio, put the cleaned text/read list into `transcript`.
+1. `items_to_add`: Items we are out of or need to buy (e.g. "we're out of trash bags and garlic" or "נגמר חלב ועגבניות" -> add Trash Bags [Household], Garlic [Produce]).
    - Assign each item to one of the 8 Supermarket Walking-Order categories: {", ".join(GROCERY_CATEGORIES)}.
-2. `items_to_check_off`: Items already bought or mentioned in past tense (e.g. "Bought milk and eggs for 45" -> check off Milk and Eggs).
+2. `items_to_check_off`: Items already bought or mentioned in past tense (e.g. "Bought milk and eggs for 45" / "קניתי חלב וביצים ב-45" -> check off Milk and Eggs).
    - If the item matches one in the active grocery list (even Hebrew <-> English), include its `matched_grocery_id`.
 3. `expenses_to_log`: Any spending/bills mentioned (e.g. "Bought milk and eggs for 45" -> amount=45, category="Groceries", description="Milk and eggs", paid_by="{active_profile}", split_rule="SHARED_50_50"; "log 320 for electricity paid by Tamir" -> amount=320, category="Electricity", description="Electricity bill", paid_by="Tamir", split_rule="SHARED_50_50").
    - Default `paid_by` to "{active_profile}" unless the user specifies Tamir or Mikush.
 4. `summary_message`: A concise 1-line summary of the actions taken.
 
-User input text: {text_input or "(See attached handwritten list image)"}
+User input text: {text_input or media_hint}
 """
 
     contents: List[Any] = []
+    if audio_bytes:
+        contents.append(types.Part.from_bytes(data=audio_bytes, mime_type=aud_mime or "audio/webm"))
     if image_bytes:
-        contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type or "image/jpeg"))
+        contents.append(types.Part.from_bytes(data=image_bytes, mime_type=img_mime or "image/jpeg"))
     contents.append(prompt)
 
     response = client.models.generate_content(
@@ -1179,5 +1246,7 @@ User input text: {text_input or "(See attached handwritten list image)"}
         it["default_split"] = meta["default_split"]
         it["typical_depletion_days"] = meta["typical_depletion_days"]
 
+    transcript_val = (data.get("transcript") or text_input or "").strip()
+    data["transcript"] = transcript_val or None
     data["parser_mode"] = "gemini"
     return data

@@ -1168,6 +1168,12 @@
       background: rgba(244, 63, 94, 0.25);
       border-color: #f43f5e;
       color: #fda4af;
+      width: auto;
+      min-width: 68px;
+      padding: 0 11px;
+      gap: 5px;
+      font-size: 0.76rem;
+      font-weight: 800;
       animation: pulse-ring 1.2s infinite;
     }
     @keyframes pulse-ring {
@@ -1914,7 +1920,7 @@
           <span style="font-size:0.74rem; font-weight:800; color:var(--sky); text-transform:uppercase; letter-spacing:0.04em;">
             ✨ Zero-Entry Brain Dump (Text · Voice · Photo)
           </span>
-          <button type="button" id="btn-voice-lang" onclick="toggleBrainDumpLang()" style="background:rgba(255,255,255,0.08); border:1px solid var(--card-border); color:var(--text-muted); font-size:0.68rem; padding:2px 7px; border-radius:999px; cursor:pointer;">
+          <button type="button" id="btn-voice-lang" onclick="toggleBrainDumpLang()" title="Fallback browser speech language when offline or no API key (Gemini auto-detects Hebrew &amp; English)" style="background:rgba(255,255,255,0.08); border:1px solid var(--card-border); color:var(--text-muted); font-size:0.68rem; padding:2px 7px; border-radius:999px; cursor:pointer;">
             🌐 en-US
           </button>
         </div>
@@ -1922,14 +1928,13 @@
           <input
             type="text"
             id="brain-dump-input"
-            class="search-input"
-            placeholder="e.g. Bought milk & eggs for 45, out of trash bags & garlic, log 320 electricity paid by Tamir"
             class="search-input bidi-text"
             dir="auto"
+            placeholder="e.g. Bought milk &amp; eggs for 45, out of trash bags &amp; garlic, log 320 electricity paid by Tamir"
             style="flex:1; min-width:0; font-size:14px; padding:9px 12px; border-radius:var(--radius-full);"
             onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitBrainDump(); }"
           >
-          <button type="button" id="btn-brain-dump-mic" class="btn-mic-pulse" onclick="toggleBrainDumpVoice()" title="Voice Input">
+          <button type="button" id="btn-brain-dump-mic" class="btn-mic-pulse" onclick="toggleBrainDumpVoice()" title="Voice Input (Tap to record, tap again to send)">
             🎙️
           </button>
           <button type="button" id="btn-brain-dump-photo" class="btn-mic-pulse" onclick="document.getElementById('brain-dump-file-input').click()" title="Handwritten List Photo">
@@ -7479,6 +7484,12 @@
     let ledgerSummaryData = null;
     let currentReceiptReview = null;
     let brainDumpRecognition = null;
+    let brainDumpRecorder = null;
+    let brainDumpMediaStream = null;
+    let brainDumpAudioChunks = [];
+    let brainDumpRecordTimer = null;
+    let brainDumpRecordSeconds = 0;
+    let brainDumpPreferSpeechFallback = false;
     let brainDumpLang = localStorage.getItem('brain_dump_lang') || 'en-US';
 
     function updateSoloShopperBtnUI() {
@@ -7632,7 +7643,7 @@
       }
     }
 
-    // 3. Unified "Brain Dump" Input Bar (Text, Voice & Handwritten List Photo)
+    // 3. Unified "Brain Dump" Input Bar (Text, Primary MediaRecorder Audio / Web Speech Fallback, & Handwritten Photo)
     function toggleBrainDumpLang() {
       brainDumpLang = (brainDumpLang === 'en-US') ? 'he-IL' : 'en-US';
       localStorage.setItem('brain_dump_lang', brainDumpLang);
@@ -7640,18 +7651,93 @@
       if (btn) btn.innerText = `🌐 ${brainDumpLang}`;
     }
 
-    function toggleBrainDumpVoice() {
+    function _setBrainDumpBanner(message, isError = false) {
+      const banner = document.getElementById('brain-dump-result-banner');
+      if (!banner) return;
+      banner.style.display = 'block';
+      if (isError) {
+        banner.style.borderColor = 'rgba(244, 63, 94, 0.5)';
+        banner.style.color = '#fecdd3';
+      } else {
+        banner.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+        banner.style.color = '#d1fae5';
+      }
+      banner.innerText = message;
+    }
+
+    function _showBrainDumpError(message) {
+      _setBrainDumpBanner(`⚠️ ${message}`, true);
+      showToast(message);
+    }
+
+    function _resetBrainDumpMicUI() {
+      if (brainDumpRecordTimer) {
+        clearInterval(brainDumpRecordTimer);
+        brainDumpRecordTimer = null;
+      }
+      if (brainDumpMediaStream) {
+        try {
+          brainDumpMediaStream.getTracks().forEach(track => track.stop());
+        } catch (e) {}
+        brainDumpMediaStream = null;
+      }
+      brainDumpRecorder = null;
+      brainDumpRecordSeconds = 0;
+      const micBtn = document.getElementById('btn-brain-dump-mic');
+      if (micBtn) {
+        micBtn.classList.remove('recording');
+        micBtn.innerHTML = '🎙️';
+        micBtn.title = 'Voice Input (Tap to record, tap again to send)';
+      }
+    }
+
+    function _formatRecTimer(totalSec) {
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      return `${m}:${String(s).padStart(2, '0')}`;
+    }
+
+    function _pickSupportedAudioMime() {
+      if (typeof MediaRecorder === 'undefined') return '';
+      if (typeof MediaRecorder.isTypeSupported !== 'function') return '';
+      const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+        'audio/wav',
+      ];
+      for (const mime of candidates) {
+        try {
+          if (MediaRecorder.isTypeSupported(mime)) return mime;
+        } catch (e) {}
+      }
+      return '';
+    }
+
+    function _audioExtensionForMime(mime) {
+      const base = (mime || '').split(';')[0].trim().toLowerCase();
+      if (base.includes('mp4') || base.includes('m4a')) return 'm4a';
+      if (base.includes('ogg')) return 'ogg';
+      if (base.includes('wav')) return 'wav';
+      return 'webm';
+    }
+
+    function _startWebSpeechFallback(reasonPrefix = '') {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        alert('Voice input requires a browser supporting Web Speech API (Chrome / Safari). You can type or upload a photo instead.');
-        return;
+        const prefix = reasonPrefix ? `${reasonPrefix} ` : '';
+        _showBrainDumpError(
+          `${prefix}Browser Web Speech API is unavailable here (use Chrome or Safari on HTTPS/localhost, or set GEMINI_API_KEY in .env for MediaRecorder voice).`
+        );
+        return false;
       }
+
       const micBtn = document.getElementById('btn-brain-dump-mic');
       if (brainDumpRecognition) {
-        brainDumpRecognition.stop();
+        try { brainDumpRecognition.stop(); } catch (e) {}
         brainDumpRecognition = null;
-        if (micBtn) micBtn.classList.remove('recording');
-        return;
       }
 
       const rec = new SpeechRecognition();
@@ -7659,24 +7745,191 @@
       rec.interimResults = true;
       rec.continuous = false;
       brainDumpRecognition = rec;
-      if (micBtn) micBtn.classList.add('recording');
+      if (micBtn) {
+        micBtn.classList.add('recording');
+        micBtn.innerHTML = '<span>⏹</span><span>Speech</span>';
+      }
+      _setBrainDumpBanner(
+        `${reasonPrefix ? reasonPrefix + ' · ' : ''}🎙️ Browser Speech listening (${brainDumpLang})... Speak now.`
+      );
 
+      let speechErrored = false;
       rec.onresult = (event) => {
         const transcript = Array.from(event.results).map(r => r[0].transcript).join(' ');
         const input = document.getElementById('brain-dump-input');
         if (input) input.value = transcript;
       };
-      rec.onerror = () => {
-        if (micBtn) micBtn.classList.remove('recording');
+      rec.onerror = (event) => {
+        speechErrored = true;
+        if (micBtn) {
+          micBtn.classList.remove('recording');
+          micBtn.innerHTML = '🎙️';
+        }
         brainDumpRecognition = null;
+        const code = event?.error || 'unknown';
+        const errorDetails = {
+          'not-allowed': 'Microphone permission denied for Web Speech API. Allow mic access in browser settings.',
+          'service-not-allowed': 'Speech recognition service blocked in this browser/webview (e.g. embedded preview or Brave). Configure GEMINI_API_KEY in .env or open in Chrome/Safari.',
+          'network': 'Speech recognition network error — browser could not reach its speech service.',
+          'no-speech': 'No speech was detected. Tap the mic and speak clearly.',
+          'audio-capture': 'No working microphone was detected.',
+          'aborted': 'Speech recognition stopped.',
+        };
+        _showBrainDumpError(errorDetails[code] || `Speech recognition failed (${code}).`);
       };
       rec.onend = () => {
-        if (micBtn) micBtn.classList.remove('recording');
+        if (micBtn) {
+          micBtn.classList.remove('recording');
+          micBtn.innerHTML = '🎙️';
+        }
         brainDumpRecognition = null;
+        if (speechErrored) return;
         const val = (document.getElementById('brain-dump-input')?.value || '').trim();
         if (val) submitBrainDump();
       };
-      rec.start();
+
+      try {
+        rec.start();
+        return true;
+      } catch (err) {
+        brainDumpRecognition = null;
+        _resetBrainDumpMicUI();
+        _showBrainDumpError(`Could not start browser Speech Recognition (${err.message || err}).`);
+        return false;
+      }
+    }
+
+    async function toggleBrainDumpVoice() {
+      const micBtn = document.getElementById('btn-brain-dump-mic');
+
+      // Stop Web Speech fallback if currently active
+      if (brainDumpRecognition) {
+        try { brainDumpRecognition.stop(); } catch (e) {}
+        brainDumpRecognition = null;
+        _resetBrainDumpMicUI();
+        return;
+      }
+
+      // Second tap: stop active MediaRecorder and trigger upload via onstop
+      if (brainDumpRecorder && brainDumpRecorder.state === 'recording') {
+        if (brainDumpRecordTimer) {
+          clearInterval(brainDumpRecordTimer);
+          brainDumpRecordTimer = null;
+        }
+        try {
+          brainDumpRecorder.stop();
+        } catch (err) {
+          _resetBrainDumpMicUI();
+          _showBrainDumpError(`Failed to stop recording (${err.message || err}).`);
+        }
+        return;
+      }
+
+      // Offline or known missing key -> go straight to Web Speech fallback
+      if (navigator.onLine === false) {
+        _startWebSpeechFallback('Offline mode:');
+        return;
+      }
+      if (brainDumpPreferSpeechFallback) {
+        _startWebSpeechFallback('GEMINI_API_KEY not configured:');
+        return;
+      }
+
+      // Check MediaRecorder + getUserMedia availability
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function' || typeof MediaRecorder === 'undefined') {
+        _startWebSpeechFallback('MediaRecorder unavailable in this browser/origin.');
+        return;
+      }
+
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        const errName = err?.name || 'Error';
+        const micErrors = {
+          NotAllowedError: 'Microphone permission denied. Allow mic access in browser settings and try again.',
+          PermissionDeniedError: 'Microphone permission denied. Allow mic access and try again.',
+          NotFoundError: 'No microphone found on this device.',
+          DevicesNotFoundError: 'No microphone found on this device.',
+          NotReadableError: 'Microphone could not be accessed (already in use or blocked by OS).',
+          TrackStartError: 'Microphone could not be started (device busy).',
+          SecurityError: 'Microphone recording requires HTTPS or localhost.',
+        };
+        _showBrainDumpError(micErrors[errName] || `Microphone error (${errName}): ${err?.message || err}`);
+        return;
+      }
+
+      brainDumpMediaStream = stream;
+      brainDumpAudioChunks = [];
+      const selectedMime = _pickSupportedAudioMime();
+
+      let recorder;
+      try {
+        recorder = selectedMime
+          ? new MediaRecorder(stream, { mimeType: selectedMime })
+          : new MediaRecorder(stream);
+      } catch (err) {
+        _resetBrainDumpMicUI();
+        _showBrainDumpError(`Could not initialize MediaRecorder (${err.message || err}).`);
+        return;
+      }
+
+      brainDumpRecorder = recorder;
+      brainDumpRecordSeconds = 0;
+
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) {
+          brainDumpAudioChunks.push(ev.data);
+        }
+      };
+
+      recorder.onerror = (ev) => {
+        const msg = ev?.error?.message || ev?.error?.name || 'Recording interrupted';
+        _resetBrainDumpMicUI();
+        _showBrainDumpError(`Audio recording failed: ${msg}`);
+      };
+
+      recorder.onstop = async () => {
+        const rawMime = recorder.mimeType || selectedMime || 'audio/webm';
+        const cleanMime = rawMime.split(';')[0].trim() || 'audio/webm';
+        const chunks = brainDumpAudioChunks.slice();
+        brainDumpAudioChunks = [];
+        _resetBrainDumpMicUI();
+
+        const blob = new Blob(chunks, { type: cleanMime });
+        if (!blob || blob.size === 0) {
+          _showBrainDumpError('No audio was captured. Record at least 1 second and tap the mic again to send.');
+          return;
+        }
+
+        const ext = _audioExtensionForMime(cleanMime);
+        const formData = new FormData();
+        formData.append('file', blob, `voice-recording.${ext}`);
+
+        await _runBrainDumpFetch(formData, true, { isVoiceAudio: true });
+      };
+
+      try {
+        recorder.start(250);
+      } catch (err) {
+        _resetBrainDumpMicUI();
+        _showBrainDumpError(`Could not start recording (${err.message || err}).`);
+        return;
+      }
+
+      if (micBtn) {
+        micBtn.classList.add('recording');
+        micBtn.innerHTML = `<span>⏹</span><span>0:00</span>`;
+        micBtn.title = 'Tap again to stop recording & process';
+      }
+      _setBrainDumpBanner('🎙️ Recording... Tap mic again to stop & send (Hebrew / English auto-detected).');
+
+      brainDumpRecordTimer = setInterval(() => {
+        brainDumpRecordSeconds += 1;
+        if (micBtn && brainDumpRecorder && brainDumpRecorder.state === 'recording') {
+          micBtn.innerHTML = `<span>⏹</span><span>${_formatRecTimer(brainDumpRecordSeconds)}</span>`;
+        }
+      }, 1000);
     }
 
     async function handleBrainDumpPhoto(inputEl) {
@@ -7698,11 +7951,15 @@
       await _runBrainDumpFetch(JSON.stringify({ text }), false);
     }
 
-    async function _runBrainDumpFetch(body, isMultipart) {
+    async function _runBrainDumpFetch(body, isMultipart, options = {}) {
+      const isVoiceAudio = Boolean(options.isVoiceAudio);
       const btn = document.getElementById('btn-brain-dump-submit');
-      const banner = document.getElementById('brain-dump-result-banner');
       if (btn) { btn.disabled = true; btn.innerText = '...'; }
-      if (banner) { banner.style.display = 'block'; banner.innerText = '✨ Gemini is parsing your Brain Dump...'; }
+      _setBrainDumpBanner(
+        isVoiceAudio
+          ? '🎙️ Uploading & transcribing voice Brain Dump (Hebrew / English)...'
+          : '✨ Parsing your Brain Dump...'
+      );
 
       try {
         const headers = { 'X-Apartment-User': currentProfile };
@@ -7712,28 +7969,39 @@
           headers,
           body
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(data.detail || 'Brain Dump failed');
+          if (isVoiceAudio && data && data.error_code === 'GEMINI_API_KEY_MISSING') {
+            brainDumpPreferSpeechFallback = true;
+            showToast('GEMINI_API_KEY not configured — falling back to browser Speech Recognition.');
+            _startWebSpeechFallback('GEMINI_API_KEY missing in .env.');
+            return;
+          }
+          throw new Error(data.detail || `Brain Dump failed (HTTP ${res.status})`);
         }
         const input = document.getElementById('brain-dump-input');
-        if (input) input.value = '';
+        if (input) {
+          if (isVoiceAudio && data.transcript) {
+            input.value = data.transcript;
+          } else if (!isVoiceAudio) {
+            input.value = '';
+          }
+        }
 
         const parts = [];
+        if (isVoiceAudio && data.transcript) parts.push(`🗣️ "${data.transcript}"`);
         if (data.checked_off && data.checked_off.length) parts.push(`✓ Checked off: ${data.checked_off.join(', ')}`);
         if (data.added_items && data.added_items.length) parts.push(`+ Added: ${data.added_items.map(i => i.name).join(', ')}`);
         if (data.logged_expenses && data.logged_expenses.length) parts.push(`₪ Logged: ${data.logged_expenses.map(e => `${e.description} (₪${e.amount})`).join(', ')}`);
-        if (banner) {
-          banner.style.display = 'block';
-          banner.innerText = parts.length ? parts.join(' · ') : (data.summary_message || 'Done!');
-        }
+        _setBrainDumpBanner(parts.length ? parts.join(' · ') : (data.summary_message || 'Done!'));
         showToast(data.summary_message || 'Brain Dump executed!');
         await loadGroceries();
       } catch (err) {
-        if (banner) {
-          banner.style.display = 'block';
-          banner.innerText = `⚠️ ${err.message}`;
+        if (isVoiceAudio && (navigator.onLine === false || err instanceof TypeError)) {
+          _startWebSpeechFallback('Offline or server unreachable:');
+          return;
         }
+        _showBrainDumpError(err.message || 'Brain Dump failed');
       } finally {
         if (btn) { btn.disabled = false; btn.innerText = 'Run'; }
       }

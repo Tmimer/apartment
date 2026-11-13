@@ -699,3 +699,113 @@ def test_phase2_recurring_bills_breakdown_and_csv_export(client):
     assert "Arnona Bi-Monthly ארנונה" in csv_text
     assert "Gas & Vaad Bayit" in csv_text
     assert "שופרסל" in csv_text
+
+
+def test_brain_dump_multimodal_audio_upload_and_fallback(client, monkeypatch):
+    """Tests MediaRecorder audio/* MIME uploads, Gemini inline audio Part, transcript return, and 503 missing-key fallback signal."""
+    from services.gemini_service import normalize_media_mime, parse_brain_dump_with_gemini
+
+    # 1. MIME normalization across browser codecs & mobile extensions
+    assert normalize_media_mime("audio/webm;codecs=opus") == "audio/webm"
+    assert normalize_media_mime("audio/mp4") == "audio/mp4"
+    assert normalize_media_mime("audio/x-m4a") == "audio/mp4"
+    assert normalize_media_mime("audio/ogg;codecs=opus") == "audio/ogg"
+    assert normalize_media_mime("audio/x-wav") == "audio/wav"
+    assert normalize_media_mime("application/octet-stream", "voice-recording.m4a") == "audio/mp4"
+
+    # 2. Missing GEMINI_API_KEY returns 503 GEMINI_API_KEY_MISSING for audio-only uploads (triggering SpeechRecognition fallback on client)
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    missing_audio_resp = client.post(
+        "/api/brain-dump",
+        files={"file": ("voice-recording.webm", b"webm-audio-bytes", "audio/webm;codecs=opus")},
+        headers={"X-Apartment-User": "Tamir"},
+    )
+    assert missing_audio_resp.status_code == 503
+    assert missing_audio_resp.json()["error_code"] == "GEMINI_API_KEY_MISSING"
+
+    # 3. Unsupported non-audio/non-image file returns 400 and multipart text-only uses local fallback when key absent
+    bad_file_resp = client.post(
+        "/api/brain-dump",
+        files={"file": ("notes.txt", b"hello", "text/plain")},
+        headers={"X-Apartment-User": "Tamir"},
+    )
+    assert bad_file_resp.status_code == 400
+
+    mp_text = client.post(
+        "/api/brain-dump",
+        data={"text": "out of onions"},
+        headers={"X-Apartment-User": "Tamir"},
+    )
+    assert mp_text.status_code == 200
+    assert mp_text.json()["parser_mode"] == "local_fallback"
+    assert mp_text.json()["transcript"] == "out of onions"
+    assert any(it["name"].lower() == "onions" for it in mp_text.json()["added_items"])
+
+    # 4. Audio upload execution (webm / mp4 / ogg / wav) + bilingual transcript extraction
+    client.post("/groceries/api/items", json={"name": "חלב", "category": "Dairy/Eggs"})
+    captured_calls = []
+
+    def fake_gemini_audio_brain_dump(**kwargs):
+        captured_calls.append(kwargs)
+        return {
+            "transcript": "קניתי חלב ב-12 שקל ונגמר עגבניות שרי",
+            "items_to_check_off": [{"name": "חלב", "matched_grocery_id": None}],
+            "items_to_add": [{"name": "עגבניות שרי", "amount": 1, "unit": "pack", "category": "Produce"}],
+            "expenses_to_log": [
+                {"description": "חלב", "amount": 12.0, "category": "Groceries", "paid_by": "Tamir", "split_rule": "SHARED_50_50"}
+            ],
+            "summary_message": "Transcribed bilingual voice Brain Dump.",
+        }
+
+    monkeypatch.setattr("routers.receipts.parse_brain_dump_with_gemini", fake_gemini_audio_brain_dump)
+
+    for filename, raw_mime, expected_mime in [
+        ("voice-recording.webm", "audio/webm;codecs=opus", "audio/webm"),
+        ("voice-recording.m4a", "audio/mp4", "audio/mp4"),
+        ("voice-recording.ogg", "audio/ogg;codecs=opus", "audio/ogg"),
+        ("voice-recording.wav", "audio/wav", "audio/wav"),
+    ]:
+        resp = client.post(
+            "/api/brain-dump",
+            files={"file": (filename, b"fake-audio-payload", raw_mime)},
+            headers={"X-Apartment-User": "Tamir"},
+        )
+        assert resp.status_code == 200
+        assert captured_calls[-1]["audio_bytes"] == b"fake-audio-payload"
+        assert captured_calls[-1]["audio_mime_type"] == expected_mime
+        assert captured_calls[-1]["image_bytes"] is None
+
+    data = resp.json()
+    assert data["transcript"] == "קניתי חלב ב-12 שקל ונגמר עגבניות שרי"
+    assert "חלב" in data["checked_off"]
+    assert any(it["name"] == "עגבניות שרי" and it["default_split"] == "MIKUSH_100" for it in data["added_items"])
+    assert len(data["logged_expenses"]) == 1 and data["logged_expenses"][0]["amount"] == 12.0
+
+    # 5. Direct unit test: parse_brain_dump_with_gemini passes inline audio Part to Gemini
+    sent_payloads = []
+
+    class _FakeModels:
+        def generate_content(self, model, contents, config):
+            sent_payloads.append({"model": model, "contents": contents, "config": config})
+            return type("Resp", (), {
+                "parsed": None,
+                "text": '{"transcript": "bring avocado and milk", "items_to_add": [{"name": "Avocado", "category": "Produce"}], "items_to_check_off": [], "expenses_to_log": [], "summary_message": "Added Avocado"}'
+            })()
+
+    monkeypatch.setattr("services.gemini_service._get_gemini_client", lambda: type("Client", (), {"models": _FakeModels()})())
+    gem_res = parse_brain_dump_with_gemini(
+        text_input=None,
+        image_bytes=None,
+        mime_type=None,
+        active_profile="Tamir",
+        active_grocery_items=[],
+        audio_bytes=b"abc-mp4-bytes",
+        audio_mime_type="audio/mp4",
+    )
+    assert gem_res["transcript"] == "bring avocado and milk"
+    assert gem_res["items_to_add"][0]["default_split"] == "MIKUSH_100"
+    assert len(sent_payloads) == 1
+    parts = sent_payloads[0]["contents"]
+    assert len(parts) == 2
+    assert parts[0].inline_data.mime_type == "audio/mp4"
+    assert parts[0].inline_data.data == b"abc-mp4-bytes"

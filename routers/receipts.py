@@ -25,6 +25,7 @@ from services.gemini_service import (
     parse_receipt_text_locally,
     parse_brain_dump_with_gemini,
     parse_brain_dump_locally,
+    normalize_media_mime,
     _canonical_alias_groups,
 )
 
@@ -486,29 +487,56 @@ async def execute_brain_dump(
     db: Session = Depends(get_db),
 ):
     """
-    Unified Brain Dump bar: accepts messy text, voice transcript, or a handwritten shopping list photo,
-    and executes multi-intent actions (check off bought items, add missing items, log expenses) in one pass.
+    Unified Brain Dump bar: accepts JSON text/media, or multipart/form-data containing
+    typed text, handwritten list photos (image/*), or recorded voice blobs (audio/*),
+    transcribing & executing multi-intent actions in one pass.
     """
     active_user = get_active_profile(request)
     image_bytes: Optional[bytes] = None
-    mime_type: Optional[str] = None
+    image_mime_type: Optional[str] = None
+    audio_bytes: Optional[bytes] = None
+    audio_mime_type: Optional[str] = None
     input_text = text
 
     if file is not None:
-        image_bytes = await file.read()
-        mime_type = file.content_type or "image/jpeg"
+        raw_bytes = await file.read()
+        clean_mime = normalize_media_mime(file.content_type, file.filename)
+        if raw_bytes:
+            if clean_mime.startswith("audio/"):
+                audio_bytes = raw_bytes
+                audio_mime_type = clean_mime
+            elif clean_mime.startswith("image/") or not clean_mime:
+                image_bytes = raw_bytes
+                image_mime_type = clean_mime or "image/jpeg"
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported file type '{clean_mime}'. Upload audio/* or image/*."
+                )
     else:
-        try:
-            body = await request.json()
-        except Exception:
-            body = {}
+        req_ct = (request.headers.get("content-type") or "").lower()
+        body = {}
+        if "application/json" in req_ct or input_text is None:
+            try:
+                body = await request.json()
+            except Exception:
+                body = {}
         input_text = body.get("text") or input_text
+        if body.get("audio_base64"):
+            audio_bytes = _decode_base64_image(body["audio_base64"])
+            audio_mime_type = normalize_media_mime(body.get("mime_type") or "audio/webm") or "audio/webm"
         if body.get("image_base64"):
-            image_bytes = _decode_base64_image(body["image_base64"])
-            mime_type = body.get("mime_type") or "image/jpeg"
+            decoded = _decode_base64_image(body["image_base64"])
+            decoded_mime = normalize_media_mime(body.get("mime_type") or "image/jpeg") or "image/jpeg"
+            if decoded_mime.startswith("audio/") and not audio_bytes:
+                audio_bytes = decoded
+                audio_mime_type = decoded_mime
+            else:
+                image_bytes = decoded
+                image_mime_type = decoded_mime
 
-    if (not input_text or not input_text.strip()) and not image_bytes:
-        raise HTTPException(status_code=400, detail="Enter text, use voice input, or attach a handwritten list photo.")
+    if (not input_text or not input_text.strip()) and not image_bytes and not audio_bytes:
+        raise HTTPException(status_code=400, detail="Enter text, record voice audio, or attach a handwritten list photo.")
 
     active_groceries = _load_active_groceries(db)
 
@@ -516,9 +544,11 @@ async def execute_brain_dump(
         intents = parse_brain_dump_with_gemini(
             text_input=input_text.strip() if input_text else None,
             image_bytes=image_bytes,
-            mime_type=mime_type,
+            mime_type=image_mime_type,
             active_profile=active_user,
             active_grocery_items=active_groceries,
+            audio_bytes=audio_bytes,
+            audio_mime_type=audio_mime_type,
         )
     except GeminiAPIKeyMissingError as e:
         if input_text and input_text.strip():
@@ -701,6 +731,7 @@ async def execute_brain_dump(
     return {
         "status": "ok",
         "parser_mode": intents.get("parser_mode", "gemini"),
+        "transcript": intents.get("transcript") or (input_text.strip() if input_text else None),
         "checked_off": checked_off,
         "added_items": added_items,
         "logged_expenses": logged_expenses,
