@@ -781,10 +781,20 @@ def test_brain_dump_multimodal_audio_upload_and_fallback(client, monkeypatch):
     assert any(it["name"] == "עגבניות שרי" and it["default_split"] == "MIKUSH_100" for it in data["added_items"])
     assert len(data["logged_expenses"]) == 1 and data["logged_expenses"][0]["amount"] == 12.0
 
-    # 5. Direct unit test: parse_brain_dump_with_gemini defaults to gemini-3.8-flash, reads GEMINI_MODEL dynamically, and passes inline audio Part
-    from services.gemini_service import get_gemini_model, parse_receipt_with_gemini
+    # 5. Direct unit test: parse_brain_dump_with_gemini defaults to gemini-3.8-flash, LOW thinking, fallback gemini-3.5-flash-lite, and passes inline audio Part
+    from google.genai import types, errors as genai_errors
+    from services.gemini_service import (
+        get_gemini_model,
+        get_gemini_fallback_model,
+        get_gemini_thinking_level,
+        parse_receipt_with_gemini,
+    )
     monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    monkeypatch.delenv("GEMINI_FALLBACK_MODEL", raising=False)
+    monkeypatch.delenv("GEMINI_THINKING_LEVEL", raising=False)
     assert get_gemini_model() == "gemini-3.8-flash"
+    assert get_gemini_fallback_model() == "gemini-3.5-flash-lite"
+    assert get_gemini_thinking_level() == "LOW"
 
     sent_payloads = []
 
@@ -807,17 +817,93 @@ def test_brain_dump_multimodal_audio_upload_and_fallback(client, monkeypatch):
         audio_mime_type="audio/mp4",
     )
     assert gem_res["transcript"] == "bring avocado and milk"
+    assert gem_res["model_used"] == "gemini-3.8-flash"
     assert gem_res["items_to_add"][0]["default_split"] == "MIKUSH_100"
     assert len(sent_payloads) == 1
     assert sent_payloads[0]["model"] == "gemini-3.8-flash"
+    assert sent_payloads[0]["config"].thinking_config.thinking_level == types.ThinkingLevel.LOW
     parts = sent_payloads[0]["contents"]
     assert len(parts) == 2
     assert parts[0].inline_data.mime_type == "audio/mp4"
     assert parts[0].inline_data.data == b"abc-mp4-bytes"
 
-    # Override GEMINI_MODEL dynamically at runtime and verify both receipt & brain-dump use it
+    # 6. High-demand 503 fallback: gemini-3.8-flash 503 UNAVAILABLE -> automatically retries on gemini-3.5-flash-lite with LOW thinking
+    fallback_calls = []
+
+    class _OverloadedPrimaryModels:
+        def generate_content(self, model, contents, config):
+            fallback_calls.append({"model": model, "thinking_level": config.thinking_config.thinking_level})
+            if model == "gemini-3.8-flash":
+                raise genai_errors.ServerError(
+                    503,
+                    {"error": {"code": 503, "message": "This model is currently experiencing high demand. Please try again later.", "status": "UNAVAILABLE"}},
+                )
+            return type("Resp", (), {
+                "parsed": None,
+                "text": '{"merchant_name": "Shufersal", "receipt_type": "supermarket", "currency": "ILS", "items": [{"raw_name": "חלב 3%", "gross_price": 6.90, "net_price": 6.90}]}'
+            })()
+
+    monkeypatch.setattr("services.gemini_service._get_gemini_client", lambda: type("Client", (), {"models": _OverloadedPrimaryModels()})())
+    fb_receipt = parse_receipt_with_gemini(b"jpg", "image/jpeg", {}, [])
+    assert fb_receipt["model_used"] == "gemini-3.5-flash-lite"
+    assert len(fb_receipt["items"]) == 1
+    assert [c["model"] for c in fallback_calls] == ["gemini-3.8-flash", "gemini-3.5-flash-lite"]
+    assert all(c["thinking_level"] == types.ThinkingLevel.LOW for c in fallback_calls)
+
+    # Also test 503 fallback on parse_brain_dump_with_gemini
+    bd_fallback_calls = []
+
+    class _OverloadedBrainDumpModels:
+        def generate_content(self, model, contents, config):
+            bd_fallback_calls.append({"model": model, "thinking_level": config.thinking_config.thinking_level})
+            if model == "gemini-3.8-flash":
+                raise genai_errors.ServerError(
+                    503,
+                    {"error": {"code": 503, "message": "This model is currently experiencing high demand. Please try again later.", "status": "UNAVAILABLE"}},
+                )
+            return type("Resp", (), {
+                "parsed": None,
+                "text": '{"transcript": "need milk", "items_to_add": [{"name": "Milk", "category": "Dairy/Eggs"}], "items_to_check_off": [], "expenses_to_log": [], "summary_message": "Added Milk"}'
+            })()
+
+    monkeypatch.setattr("services.gemini_service._get_gemini_client", lambda: type("Client", (), {"models": _OverloadedBrainDumpModels()})())
+    fb_bd = parse_brain_dump_with_gemini(
+        text_input=None,
+        image_bytes=None,
+        mime_type=None,
+        active_profile="Tamir",
+        active_grocery_items=[],
+        audio_bytes=b"webm-bytes",
+        audio_mime_type="audio/webm",
+    )
+    assert fb_bd["model_used"] == "gemini-3.5-flash-lite"
+    assert [c["model"] for c in bd_fallback_calls] == ["gemini-3.8-flash", "gemini-3.5-flash-lite"]
+    assert all(c["thinking_level"] == types.ThinkingLevel.LOW for c in bd_fallback_calls)
+
+    # Non-retryable 401/API_KEY_INVALID error fails fast without retrying fallback model
+    auth_attempts = []
+
+    class _InvalidKeyModels:
+        def generate_content(self, model, contents, config):
+            auth_attempts.append(model)
+            raise genai_errors.ClientError(
+                401,
+                {"error": {"code": 401, "message": "API key not valid.", "status": "UNAUTHENTICATED"}},
+            )
+
+    monkeypatch.setattr("services.gemini_service._get_gemini_client", lambda: type("Client", (), {"models": _InvalidKeyModels()})())
+    try:
+        parse_receipt_with_gemini(b"jpg", "image/jpeg", {}, [])
+        assert False, "Expected ClientError 401 to propagate immediately"
+    except genai_errors.ClientError:
+        pass
+    assert auth_attempts == ["gemini-3.8-flash"]
+
+    # Override GEMINI_MODEL & GEMINI_THINKING_LEVEL dynamically at runtime
     monkeypatch.setenv("GEMINI_MODEL", "gemini-custom-override")
+    monkeypatch.setenv("GEMINI_THINKING_LEVEL", "minimal")
     assert get_gemini_model() == "gemini-custom-override"
+    assert get_gemini_thinking_level() == "MINIMAL"
 
     class _FakeReceiptModels:
         def generate_content(self, model, contents, config):
@@ -830,3 +916,4 @@ def test_brain_dump_multimodal_audio_upload_and_fallback(client, monkeypatch):
     monkeypatch.setattr("services.gemini_service._get_gemini_client", lambda: type("Client", (), {"models": _FakeReceiptModels()})())
     parse_receipt_with_gemini(b"jpg", "image/jpeg", {}, [])
     assert sent_payloads[-1]["model"] == "gemini-custom-override"
+    assert sent_payloads[-1]["config"].thinking_config.thinking_level == types.ThinkingLevel.MINIMAL

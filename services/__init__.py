@@ -1,6 +1,8 @@
 from services.gemini_service import (
     GeminiAPIKeyMissingError,
     get_gemini_model,
+    get_gemini_fallback_model,
+    get_gemini_thinking_level,
     normalize_item_key,
     infer_grocery_category,
     is_produce_item,
@@ -13,6 +15,8 @@ from services.gemini_service import (
 __all__ = [
     "GeminiAPIKeyMissingError",
     "get_gemini_model",
+    "get_gemini_fallback_model",
+    "get_gemini_thinking_level",
     "normalize_item_key",
     "infer_grocery_category",
     "is_produce_item",

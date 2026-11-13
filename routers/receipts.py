@@ -731,6 +731,7 @@ async def execute_brain_dump(
     return {
         "status": "ok",
         "parser_mode": intents.get("parser_mode", "gemini"),
+        "model_used": intents.get("model_used"),
         "transcript": intents.get("transcript") or (input_text.strip() if input_text else None),
         "checked_off": checked_off,
         "added_items": added_items,

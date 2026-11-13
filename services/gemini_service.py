@@ -25,15 +25,124 @@ AISLE_TO_GROCERY_CATEGORY: Dict[str, str] = {
 }
 
 DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
+DEFAULT_GEMINI_THINKING_LEVEL = "LOW"
+_VALID_THINKING_LEVELS = {"MINIMAL", "LOW", "MEDIUM", "HIGH", "XHIGH"}
+_RETRYABLE_STATUS_CODES = {404, 429, 500, 502, 503, 504}
+_NON_RETRYABLE_STATUS_CODES = {400, 401, 403}
+_RETRYABLE_ERROR_MARKERS = (
+    "UNAVAILABLE",
+    "RESOURCE_EXHAUSTED",
+    "HIGH DEMAND",
+    "OVERLOADED",
+    "TRY AGAIN LATER",
+    "RATE LIMIT",
+    "TOO MANY REQUESTS",
+    "NOT_FOUND",
+    "TIMEOUT",
+    "TIMED OUT",
+)
+_NON_RETRYABLE_ERROR_MARKERS = (
+    "API_KEY_INVALID",
+    "API KEY NOT VALID",
+    "PERMISSION_DENIED",
+    "UNAUTHENTICATED",
+)
+
 GEMINI_MODEL = (os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL) or DEFAULT_GEMINI_MODEL).strip() or DEFAULT_GEMINI_MODEL
 
 
 def get_gemini_model() -> str:
-    """Reads the Gemini model name dynamically from os.getenv('GEMINI_MODEL', 'gemini-3.8-flash')."""
+    """Reads the primary Gemini model name dynamically from os.getenv('GEMINI_MODEL', 'gemini-3.8-flash')."""
     env_val = (os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL) or "").strip()
     if env_val:
         return env_val
     return GEMINI_MODEL or DEFAULT_GEMINI_MODEL
+
+
+def get_gemini_fallback_model() -> str:
+    """Reads the fallback Gemini model from os.getenv('GEMINI_FALLBACK_MODEL', 'gemini-3.5-flash-lite')."""
+    raw = os.getenv("GEMINI_FALLBACK_MODEL")
+    if raw is None:
+        return DEFAULT_GEMINI_FALLBACK_MODEL
+    cleaned = raw.strip()
+    if cleaned.lower() in ("", "none", "off", "false", "disabled"):
+        return ""
+    return cleaned
+
+
+def get_gemini_thinking_level() -> str:
+    """Reads the Gemini thinking level dynamically from os.getenv('GEMINI_THINKING_LEVEL', 'LOW')."""
+    raw = (os.getenv("GEMINI_THINKING_LEVEL", DEFAULT_GEMINI_THINKING_LEVEL) or "").strip().upper()
+    if raw in _VALID_THINKING_LEVELS:
+        return raw
+    return DEFAULT_GEMINI_THINKING_LEVEL
+
+
+def _should_fallback_model(exc: Exception) -> bool:
+    """Returns True when an API failure reflects overload, high demand, rate limits, or unavailable model."""
+    code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+    status_text = str(getattr(exc, "status", "") or "").upper()
+    combined = f"{status_text} {str(exc).upper()}"
+
+    if any(marker in combined for marker in _NON_RETRYABLE_ERROR_MARKERS):
+        return False
+    if code in _NON_RETRYABLE_STATUS_CODES:
+        return False
+    if code in _RETRYABLE_STATUS_CODES:
+        return True
+    if any(marker in combined for marker in _RETRYABLE_ERROR_MARKERS):
+        return True
+    return isinstance(exc, (TimeoutError, ConnectionError))
+
+
+def _generate_structured_json(
+    client: Any,
+    contents: Any,
+    response_schema: Any,
+    temperature: float = 0.1,
+) -> tuple[dict, str]:
+    """Calls Gemini with LOW thinking effort by default, falling back to Flash-Lite on high demand."""
+    from google.genai import types
+
+    primary_model = get_gemini_model()
+    fallback_model = get_gemini_fallback_model()
+    candidate_models = [primary_model]
+    if fallback_model and fallback_model != primary_model:
+        candidate_models.append(fallback_model)
+
+    thinking_level = get_gemini_thinking_level()
+    config = types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=response_schema,
+        temperature=temperature,
+        thinking_config=types.ThinkingConfig(thinking_level=thinking_level),
+    )
+
+    last_exc: Optional[Exception] = None
+    for idx, model_name in enumerate(candidate_models):
+        has_fallback = idx < len(candidate_models) - 1
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=config,
+            )
+            if getattr(response, "parsed", None):
+                parsed_obj = response.parsed
+                data = parsed_obj.model_dump() if hasattr(parsed_obj, "model_dump") else dict(parsed_obj)
+            else:
+                data = json.loads(response.text)
+            return data, model_name
+        except Exception as exc:
+            last_exc = exc
+            if has_fallback and _should_fallback_model(exc):
+                print(f"[!] Gemini '{model_name}' failed ({exc}); falling back to '{candidate_models[idx + 1]}'.")
+                continue
+            raise
+
+    assert last_exc is not None
+    raise last_exc
 
 
 class GeminiAPIKeyMissingError(Exception):
@@ -765,24 +874,15 @@ Extract every item from the image into the required JSON schema carefully obeyin
    Use ONLY one of: {", ".join(GROCERY_CATEGORIES)}.
 """
 
-    response = client.models.generate_content(
-        model=get_gemini_model(),
+    data, model_used = _generate_structured_json(
+        client=client,
         contents=[
             types.Part.from_bytes(data=image_bytes, mime_type=mime_type or "image/jpeg"),
             prompt,
         ],
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=ParsedReceiptResponseSchema,
-            temperature=0.1,
-        ),
+        response_schema=ParsedReceiptResponseSchema,
+        temperature=0.1,
     )
-
-    if getattr(response, "parsed", None):
-        parsed_obj = response.parsed
-        data = parsed_obj.model_dump() if hasattr(parsed_obj, "model_dump") else dict(parsed_obj)
-    else:
-        data = json.loads(response.text)
 
     enriched_items = process_and_enrich_receipt_items(
         data.get("items", []),
@@ -798,6 +898,7 @@ Extract every item from the image into the required JSON schema carefully obeyin
         "printed_total": data.get("printed_total"),
         "items": enriched_items,
         "parser_mode": "gemini",
+        "model_used": model_used,
     }
 
 
@@ -1232,21 +1333,12 @@ User input text: {text_input or media_hint}
         contents.append(types.Part.from_bytes(data=image_bytes, mime_type=img_mime or "image/jpeg"))
     contents.append(prompt)
 
-    response = client.models.generate_content(
-        model=get_gemini_model(),
+    data, model_used = _generate_structured_json(
+        client=client,
         contents=contents,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=BrainDumpResponseSchema,
-            temperature=0.1,
-        ),
+        response_schema=BrainDumpResponseSchema,
+        temperature=0.1,
     )
-
-    if getattr(response, "parsed", None):
-        parsed_obj = response.parsed
-        data = parsed_obj.model_dump() if hasattr(parsed_obj, "model_dump") else dict(parsed_obj)
-    else:
-        data = json.loads(response.text)
 
     # Normalize categories, default_split, and typical_depletion_days via deterministic classifier
     for it in data.get("items_to_add", []):
@@ -1258,4 +1350,5 @@ User input text: {text_input or media_hint}
     transcript_val = (data.get("transcript") or text_input or "").strip()
     data["transcript"] = transcript_val or None
     data["parser_mode"] = "gemini"
+    data["model_used"] = model_used
     return data
