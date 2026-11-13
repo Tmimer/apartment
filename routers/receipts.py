@@ -137,7 +137,7 @@ async def parse_receipt_endpoint(
     db: Session = Depends(get_db),
 ):
     """
-    Parses an Israeli supermarket receipt, Wolt order, or utility bill using gemini-2.5-flash,
+    Parses an Israeli supermarket receipt, Wolt order, or utility bill using Gemini (default gemini-3.8-flash),
     or offline receipt text via LearnedItemRules + seed_hebrew_items.py fallback.
     """
     active_user = paid_by if paid_by in ("Tamir", "Mikush") else get_active_profile(request)

@@ -781,7 +781,11 @@ def test_brain_dump_multimodal_audio_upload_and_fallback(client, monkeypatch):
     assert any(it["name"] == "עגבניות שרי" and it["default_split"] == "MIKUSH_100" for it in data["added_items"])
     assert len(data["logged_expenses"]) == 1 and data["logged_expenses"][0]["amount"] == 12.0
 
-    # 5. Direct unit test: parse_brain_dump_with_gemini passes inline audio Part to Gemini
+    # 5. Direct unit test: parse_brain_dump_with_gemini defaults to gemini-3.8-flash, reads GEMINI_MODEL dynamically, and passes inline audio Part
+    from services.gemini_service import get_gemini_model, parse_receipt_with_gemini
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    assert get_gemini_model() == "gemini-3.8-flash"
+
     sent_payloads = []
 
     class _FakeModels:
@@ -805,7 +809,24 @@ def test_brain_dump_multimodal_audio_upload_and_fallback(client, monkeypatch):
     assert gem_res["transcript"] == "bring avocado and milk"
     assert gem_res["items_to_add"][0]["default_split"] == "MIKUSH_100"
     assert len(sent_payloads) == 1
+    assert sent_payloads[0]["model"] == "gemini-3.8-flash"
     parts = sent_payloads[0]["contents"]
     assert len(parts) == 2
     assert parts[0].inline_data.mime_type == "audio/mp4"
     assert parts[0].inline_data.data == b"abc-mp4-bytes"
+
+    # Override GEMINI_MODEL dynamically at runtime and verify both receipt & brain-dump use it
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-custom-override")
+    assert get_gemini_model() == "gemini-custom-override"
+
+    class _FakeReceiptModels:
+        def generate_content(self, model, contents, config):
+            sent_payloads.append({"model": model, "contents": contents, "config": config})
+            return type("Resp", (), {
+                "parsed": None,
+                "text": '{"merchant_name": "Shufersal", "receipt_type": "supermarket", "currency": "ILS", "items": []}'
+            })()
+
+    monkeypatch.setattr("services.gemini_service._get_gemini_client", lambda: type("Client", (), {"models": _FakeReceiptModels()})())
+    parse_receipt_with_gemini(b"jpg", "image/jpeg", {}, [])
+    assert sent_payloads[-1]["model"] == "gemini-custom-override"

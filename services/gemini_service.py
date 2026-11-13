@@ -24,7 +24,16 @@ AISLE_TO_GROCERY_CATEGORY: Dict[str, str] = {
     "8_frozen": "Frozen",
 }
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+GEMINI_MODEL = (os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL) or DEFAULT_GEMINI_MODEL).strip() or DEFAULT_GEMINI_MODEL
+
+
+def get_gemini_model() -> str:
+    """Reads the Gemini model name dynamically from os.getenv('GEMINI_MODEL', 'gemini-3.8-flash')."""
+    env_val = (os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL) or "").strip()
+    if env_val:
+        return env_val
+    return GEMINI_MODEL or DEFAULT_GEMINI_MODEL
 
 
 class GeminiAPIKeyMissingError(Exception):
@@ -716,7 +725,7 @@ def parse_receipt_with_gemini(
     learned_rules_map: Dict[str, dict],
     active_grocery_items: List[dict],
 ) -> dict:
-    """Parses an Israeli supermarket receipt, Wolt order, or utility bill using gemini-2.5-flash."""
+    """Parses an Israeli supermarket receipt, Wolt order, or utility bill using Gemini (default gemini-3.8-flash)."""
     client = _get_gemini_client()
     from google.genai import types
 
@@ -757,7 +766,7 @@ Extract every item from the image into the required JSON schema carefully obeyin
 """
 
     response = client.models.generate_content(
-        model=GEMINI_MODEL,
+        model=get_gemini_model(),
         contents=[
             types.Part.from_bytes(data=image_bytes, mime_type=mime_type or "image/jpeg"),
             prompt,
@@ -1224,7 +1233,7 @@ User input text: {text_input or media_hint}
     contents.append(prompt)
 
     response = client.models.generate_content(
-        model=GEMINI_MODEL,
+        model=get_gemini_model(),
         contents=contents,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",

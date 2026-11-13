@@ -14,3 +14,5 @@ services:
         fromDatabase:
           name: tmimer-plant-db
           property: connectionString
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash
