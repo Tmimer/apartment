@@ -153,21 +153,46 @@ async def parse_receipt_endpoint(
 
     if file is not None:
         image_bytes = await file.read()
-        mime_type = file.content_type or "image/jpeg"
+        mime_type = normalize_media_mime(file.content_type, file.filename) or "image/jpeg"
     elif not receipt_text:
-        try:
-            body = await request.json()
-        except Exception:
-            body = {}
-        if body.get("paid_by") in ("Tamir", "Mikush"):
-            active_user = body["paid_by"]
-        if body.get("image_base64"):
-            image_bytes = _decode_base64_image(body["image_base64"])
-            mime_type = body.get("mime_type") or "image/jpeg"
-        mock_items = body.get("mock_items")
-        merchant_name = body.get("merchant_name")
-        receipt_type = body.get("receipt_type")
-        text_payload = body.get("receipt_text") or text_payload
+        req_ct = (request.headers.get("content-type") or "").lower()
+        body = {}
+        if "multipart/form-data" in req_ct:
+            try:
+                form_data = await request.form()
+                if form_data.get("paid_by") in ("Tamir", "Mikush"):
+                    active_user = form_data.get("paid_by")
+                if form_data.get("receipt_text"):
+                    text_payload = str(form_data.get("receipt_text"))
+                uploaded = form_data.get("file") or form_data.get("image") or form_data.get("photo")
+                if uploaded is not None and hasattr(uploaded, "read"):
+                    image_bytes = await uploaded.read()
+                    mime_type = (
+                        normalize_media_mime(
+                            getattr(uploaded, "content_type", None),
+                            getattr(uploaded, "filename", None),
+                        )
+                        or "image/jpeg"
+                    )
+                elif form_data.get("image_base64"):
+                    image_bytes = _decode_base64_image(str(form_data.get("image_base64")))
+                    mime_type = normalize_media_mime(str(form_data.get("mime_type") or "image/jpeg")) or "image/jpeg"
+            except Exception:
+                pass
+        else:
+            try:
+                body = await request.json()
+            except Exception:
+                body = {}
+            if body.get("paid_by") in ("Tamir", "Mikush"):
+                active_user = body["paid_by"]
+            if body.get("image_base64"):
+                image_bytes = _decode_base64_image(body["image_base64"])
+                mime_type = normalize_media_mime(body.get("mime_type") or "image/jpeg") or "image/jpeg"
+            mock_items = body.get("mock_items")
+            merchant_name = body.get("merchant_name")
+            receipt_type = body.get("receipt_type")
+            text_payload = body.get("receipt_text") or text_payload
 
     if mock_items is not None:
         # Structured payload path (for deterministic testing/re-enrichment)

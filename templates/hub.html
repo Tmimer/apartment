@@ -2930,9 +2930,10 @@
           <div style="flex:1.5; min-width:170px;">
             <label style="font-size:0.72rem; color:var(--text-dim); font-weight:700; display:block; margin-bottom:4px;">Receipt / Wolt / Utility Bill</label>
             <input type="file" id="receipt-file-input" accept="image/*" style="display:none;" onchange="handleReceiptFileSelected(this)">
-            <button type="button" class="btn-primary" onclick="document.getElementById('receipt-file-input').click()" style="width:100%; padding:9px 12px; font-size:0.84rem;">
+            <button type="button" class="btn-primary" id="btn-upload-receipt-photo" onclick="document.getElementById('receipt-file-input').click()" style="width:100%; padding:9px 12px; font-size:0.84rem;">
               📸 Upload / Snap Photo
             </button>
+            <div id="receipt-photo-status" style="display:none; font-size:0.72rem; color:var(--emerald); font-weight:700; margin-top:4px; text-align:center;"></div>
           </div>
         </div>
 
@@ -2949,7 +2950,7 @@
         </details>
 
         <div id="receipt-loading-state" style="display:none; text-align:center; padding:18px; color:var(--sky); font-weight:700; font-size:0.86rem;">
-          ✨ Gemini 2.5 Flash is reading items, promotions (מבצע), weights &amp; produce splits...
+          ✨ Gemini Flash is reading items, promotions (מבצע), weights &amp; produce splits...
         </div>
         <div id="receipt-error-state" style="display:none; background:rgba(244,63,94,0.14); border:1px solid rgba(244,63,94,0.4); color:#fda4af; border-radius:var(--radius-md); padding:10px 12px; font-size:0.8rem;"></div>
 
@@ -7483,6 +7484,7 @@
     let currentGroceriesSubview = 'list';
     let ledgerSummaryData = null;
     let currentReceiptReview = null;
+    let lastSelectedReceiptFile = null;
     let brainDumpRecognition = null;
     let brainDumpRecorder = null;
     let brainDumpMediaStream = null;
@@ -7932,16 +7934,96 @@
       }, 1000);
     }
 
+    async function _prepareOptimizedImageUpload(file) {
+      if (!file) return { blob: null, dataUrl: '', mimeType: 'image/jpeg', filename: 'photo.jpg' };
+      const rawName = (file.name || 'photo.jpg').trim();
+      const rawMime = (file.type || '').toLowerCase();
+
+      // Try decoding + resizing via Canvas to JPEG (max 2048px) so iOS Safari camera captures
+      // are small, fast, and never sent as 0-byte or huge unstreamable File handles.
+      try {
+        const bitmapUrl = URL.createObjectURL(file);
+        try {
+          const img = await new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = (e) => reject(e);
+            image.src = bitmapUrl;
+          });
+          const maxDim = 2048;
+          let w = img.naturalWidth || img.width || 1200;
+          let h = img.naturalHeight || img.height || 1600;
+          if (w > maxDim || h > maxDim) {
+            const scale = maxDim / Math.max(w, h);
+            w = Math.max(1, Math.round(w * scale));
+            h = Math.max(1, Math.round(h * scale));
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
+            if (dataUrl && dataUrl.startsWith('data:image/')) {
+              return {
+                blob: blob && blob.size > 0 ? blob : file,
+                dataUrl,
+                mimeType: 'image/jpeg',
+                filename: rawName.replace(/\.[^.]+$/, '') + '.jpg',
+              };
+            }
+          }
+        } finally {
+          URL.revokeObjectURL(bitmapUrl);
+        }
+      } catch (e) {}
+
+      // Fallback: FileReader -> DataURL so bytes are eagerly read into memory before inputEl.value is cleared
+      let dataUrl = '';
+      try {
+        dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+      } catch (e) {}
+
+      let memBlob = file;
+      try {
+        const buf = await file.arrayBuffer();
+        if (buf && buf.byteLength > 0) {
+          memBlob = new Blob([buf], { type: rawMime || 'image/jpeg' });
+        }
+      } catch (e) {}
+
+      return {
+        blob: memBlob,
+        dataUrl,
+        mimeType: rawMime || 'image/jpeg',
+        filename: rawName || 'photo.jpg',
+      };
+    }
+
     async function handleBrainDumpPhoto(inputEl) {
       const file = inputEl.files && inputEl.files[0];
       if (!file) return;
+      const prepared = await _prepareOptimizedImageUpload(file);
+      inputEl.value = '';
       const formData = new FormData();
-      formData.append('file', file);
+      if (prepared.blob) {
+        formData.append('file', prepared.blob, prepared.filename);
+      }
       const extraText = (document.getElementById('brain-dump-input')?.value || '').trim();
       if (extraText) formData.append('text', extraText);
 
-      await _runBrainDumpFetch(formData, true);
-      inputEl.value = '';
+      await _runBrainDumpFetch(formData, true, {
+        fallbackJsonPayload: prepared.dataUrl
+          ? { image_base64: prepared.dataUrl, mime_type: prepared.mimeType, text: extraText || undefined }
+          : null,
+      });
     }
 
     async function submitBrainDump() {
@@ -7964,12 +8046,20 @@
       try {
         const headers = { 'X-Apartment-User': currentProfile };
         if (!isMultipart) headers['Content-Type'] = 'application/json';
-        const res = await fetch('/api/brain-dump', {
+        let res = await fetch('/api/brain-dump', {
           method: 'POST',
           headers,
           body
         });
-        const data = await res.json().catch(() => ({}));
+        let data = await res.json().catch(() => ({}));
+        if (!res.ok && res.status === 400 && isMultipart && options.fallbackJsonPayload) {
+          res = await fetch('/api/brain-dump', {
+            method: 'POST',
+            headers: { 'X-Apartment-User': currentProfile, 'Content-Type': 'application/json' },
+            body: JSON.stringify(options.fallbackJsonPayload)
+          });
+          data = await res.json().catch(() => ({}));
+        }
         if (!res.ok) {
           if (isVoiceAudio && data && data.error_code === 'GEMINI_API_KEY_MISSING') {
             brainDumpPreferSpeechFallback = true;
@@ -8016,47 +8106,88 @@
       if (!currentReceiptReview) {
         document.getElementById('receipt-review-container').style.display = 'none';
         document.getElementById('btn-commit-receipt').style.display = 'none';
+        const statusEl = document.getElementById('receipt-photo-status');
+        if (statusEl) statusEl.style.display = 'none';
       }
       openModal('receipt-scanner-modal');
     }
 
-    async function handleReceiptFileSelected(inputEl) {
-      const file = inputEl.files && inputEl.files[0];
+    async function _parseReceiptFromFile(file) {
       if (!file) return;
+      lastSelectedReceiptFile = file;
 
       const loadingEl = document.getElementById('receipt-loading-state');
       const errEl = document.getElementById('receipt-error-state');
       const reviewEl = document.getElementById('receipt-review-container');
       const commitBtn = document.getElementById('btn-commit-receipt');
+      const statusEl = document.getElementById('receipt-photo-status');
+      const paidBy = document.getElementById('receipt-paid-by')?.value || currentProfile;
 
       loadingEl.style.display = 'block';
       errEl.style.display = 'none';
       reviewEl.style.display = 'none';
       commitBtn.style.display = 'none';
+      if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.innerText = `📸 Preparing & scanning ${file.name || 'receipt photo'}...`;
+      }
 
       try {
+        const prepared = await _prepareOptimizedImageUpload(file);
         const formData = new FormData();
-        formData.append('file', file);
-        formData.append('paid_by', document.getElementById('receipt-paid-by').value || currentProfile);
+        if (prepared.blob) {
+          formData.append('file', prepared.blob, prepared.filename);
+        } else {
+          formData.append('file', file, file.name || 'receipt.jpg');
+        }
+        formData.append('paid_by', paidBy);
 
-        const res = await fetch('/api/receipts/parse', {
+        let res = await fetch('/api/receipts/parse', {
           method: 'POST',
           headers: { 'X-Apartment-User': currentProfile },
           body: formData
         });
-        const data = await res.json();
+        let data = await res.json().catch(() => ({}));
+
+        // iOS Safari / multipart stream fallback: if multipart body had 0 bytes (HTTP 400),
+        // automatically send the in-memory Base64 dataUrl via JSON.
+        if (!res.ok && res.status === 400 && prepared.dataUrl) {
+          res = await fetch('/api/receipts/parse', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+              image_base64: prepared.dataUrl,
+              mime_type: prepared.mimeType || 'image/jpeg',
+              paid_by: paidBy,
+            })
+          });
+          data = await res.json().catch(() => ({}));
+        }
+
         if (!res.ok) {
-          throw new Error(data.detail || 'Could not parse receipt');
+          throw new Error(data.detail || `Could not parse receipt (HTTP ${res.status})`);
         }
         currentReceiptReview = data;
+        if (statusEl) {
+          statusEl.style.display = 'block';
+          statusEl.innerText = `✓ Scanned ${file.name || 'photo'} (${(data.items || []).length} item${(data.items || []).length === 1 ? '' : 's'})`;
+        }
         renderReceiptReview();
       } catch (err) {
         errEl.style.display = 'block';
         errEl.innerText = `⚠️ ${err.message}`;
+        if (statusEl) statusEl.style.display = 'none';
       } finally {
         loadingEl.style.display = 'none';
-        inputEl.value = '';
       }
+    }
+
+    async function handleReceiptFileSelected(inputEl) {
+      const file = inputEl.files && inputEl.files[0];
+      if (!file) return;
+      // Read/compress file BEFORE clearing inputEl.value so iOS Safari does not invalidate the temporary camera handle
+      await _parseReceiptFromFile(file);
+      inputEl.value = '';
     }
 
     async function parseReceiptTextFromModal() {
@@ -8064,7 +8195,13 @@
       const errEl = document.getElementById('receipt-error-state');
       const loadingEl = document.getElementById('receipt-loading-state');
       if (!rawText) {
-        if (errEl) { errEl.style.display = 'block'; errEl.innerText = '⚠️ Paste receipt lines first.'; }
+        const fileInput = document.getElementById('receipt-file-input');
+        const pendingFile = (fileInput && fileInput.files && fileInput.files[0]) || lastSelectedReceiptFile;
+        if (pendingFile) {
+          await _parseReceiptFromFile(pendingFile);
+          return;
+        }
+        if (errEl) { errEl.style.display = 'block'; errEl.innerText = '⚠️ Please upload a receipt photo or paste receipt text.'; }
         return;
       }
       if (loadingEl) loadingEl.style.display = 'block';
@@ -8078,7 +8215,7 @@
             paid_by: document.getElementById('receipt-paid-by').value || currentProfile
           })
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.detail || 'Could not parse receipt text');
         currentReceiptReview = data;
         renderReceiptReview();
@@ -8215,6 +8352,9 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Failed to commit receipt');
         currentReceiptReview = null;
+        lastSelectedReceiptFile = null;
+        const statusEl = document.getElementById('receipt-photo-status');
+        if (statusEl) statusEl.style.display = 'none';
         closeModal('receipt-scanner-modal');
         showToast(data.message || 'Receipt committed to ledger!');
         await loadGroceries();

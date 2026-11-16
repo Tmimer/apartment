@@ -917,3 +917,40 @@ def test_brain_dump_multimodal_audio_upload_and_fallback(client, monkeypatch):
     parse_receipt_with_gemini(b"jpg", "image/jpeg", {}, [])
     assert sent_payloads[-1]["model"] == "gemini-custom-override"
     assert sent_payloads[-1]["config"].thinking_config.thinking_level == types.ThinkingLevel.MINIMAL
+
+    # 7. iOS Safari camera / HEIC / data-URI base64 receipt upload fallback verification
+    captured_receipt_calls = []
+
+    def _fake_parse_receipt_img(image_bytes, mime_type, learned_rules_map, active_grocery_items):
+        captured_receipt_calls.append({"image_bytes": image_bytes, "mime_type": mime_type})
+        return {
+            "merchant_name": "AM:PM",
+            "receipt_type": "supermarket",
+            "currency": "ILS",
+            "items": [{"raw_name": "עגבניות שרי", "gross_price": 12.90, "net_price": 12.90, "is_produce": True, "split_rule": "MIKUSH_100"}],
+            "parser_mode": "gemini",
+        }
+
+    monkeypatch.setattr("routers.receipts.parse_receipt_with_gemini", _fake_parse_receipt_img)
+
+    # (a) Multipart upload with generic octet-stream and .heic extension normalizes to image/heic
+    heic_resp = client.post(
+        "/api/receipts/parse",
+        files={"file": ("IMG_4021.HEIC", b"fake-heic-bytes", "application/octet-stream")},
+        data={"paid_by": "Mikush"},
+    )
+    assert heic_resp.status_code == 200
+    assert captured_receipt_calls[-1]["image_bytes"] == b"fake-heic-bytes"
+    assert captured_receipt_calls[-1]["mime_type"] == "image/heic"
+    assert heic_resp.json()["paid_by"] == "Mikush"
+
+    # (b) JSON data-URI base64 fallback (used when iOS Safari multipart camera stream yields 0 bytes)
+    import base64
+    b64_data = "data:image/jpeg;base64," + base64.b64encode(b"ios-camera-jpeg").decode("ascii")
+    b64_resp = client.post(
+        "/api/receipts/parse",
+        json={"image_base64": b64_data, "mime_type": "image/jpg", "paid_by": "Mikush"},
+    )
+    assert b64_resp.status_code == 200
+    assert captured_receipt_calls[-1]["image_bytes"] == b"ios-camera-jpeg"
+    assert captured_receipt_calls[-1]["mime_type"] == "image/jpeg"
